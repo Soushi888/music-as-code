@@ -47,7 +47,7 @@ pub enum Mode {
 ///
 /// # Examples
 /// ```
-/// use muse_core::prelude::*;
+/// use musecode_core::prelude::*;
 /// let f_minor  = Key::minor(pc!(F));
 /// let c_lydian = Key::new(pc!(C), Mode::Lydian);
 /// ```
@@ -179,7 +179,7 @@ impl Extension {
 ///
 /// # Examples
 /// ```
-/// use muse_core::prelude::*;
+/// use musecode_core::prelude::*;
 /// // Cmaj7#11
 /// let chord = Chord::new(pc!(C), ChordQuality::MajorSeventh)
 ///     .with_extension(Extension::sharp(11));

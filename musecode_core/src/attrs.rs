@@ -86,7 +86,7 @@ pub enum Articulation {
 /// Set only the fields you need:
 ///
 /// ```
-/// use muse_core::attrs::{NoteAttrs, Articulation};
+/// use musecode_core::attrs::{NoteAttrs, Articulation};
 /// let attrs = NoteAttrs {
 ///     velocity: Some(80),
 ///     articulation: Some(Articulation::Staccato),

@@ -68,7 +68,7 @@ impl Music {
     /// Equivalent to `Music::Modify(control, Box::new(self))`. Designed for chaining:
     ///
     /// ```
-    /// use muse_core::prelude::*;
+    /// use musecode_core::prelude::*;
     /// let piece = seq![n(C4, q()), n(E4, q())]
     ///     .modify(Control::Key(Key::major(pc!(C))))
     ///     .modify(Control::Tempo(Tempo::bpm(120)));
@@ -141,7 +141,7 @@ impl Mul<usize> for Music {
 ///
 /// # Examples
 /// ```
-/// use muse_core::prelude::*;
+/// use musecode_core::prelude::*;
 /// let c4_quarter  = n(C4,    q());
 /// let tonic_half  = n(d!(1), h());
 /// ```
@@ -153,7 +153,7 @@ pub fn n(pitch: impl Into<Pitch>, dur: Beats) -> Music {
 ///
 /// # Examples
 /// ```
-/// use muse_core::prelude::*;
+/// use musecode_core::prelude::*;
 /// let quarter_rest = r(q());
 /// let bar_rest     = r(w());
 /// ```
@@ -168,7 +168,7 @@ pub fn r(dur: Beats) -> Music {
 ///
 /// # Examples
 /// ```
-/// use muse_core::prelude::*;
+/// use musecode_core::prelude::*;
 /// let cmaj = chord([C4, E4, G4], h());
 /// ```
 pub fn chord(pitches: impl IntoIterator<Item = ChromaticPitch>, dur: Beats) -> Music {

@@ -1,4 +1,4 @@
-//! `muse_core` — the kernel of the `muse` musical DSL.
+//! `musecode_core` — the kernel of the `muse` musical DSL.
 //!
 //! A small, orthogonal intermediate representation for music: five core ADT
 //! constructors, polymorphic pitch, rational time, and content-addressed

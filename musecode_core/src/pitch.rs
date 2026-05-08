@@ -60,7 +60,7 @@ impl PitchClass {
     ///
     /// # Examples
     /// ```
-    /// use muse_core::prelude::*;
+    /// use musecode_core::prelude::*;
     /// assert_eq!(pc!(C).semitones(), 0);
     /// assert_eq!(pc!(A).semitones(), 9);
     /// ```
@@ -110,7 +110,7 @@ impl ChromaticPitch {
     ///
     /// # Examples
     /// ```
-    /// use muse_core::pitch::{ChromaticPitch, Letter, Accidental};
+    /// use musecode_core::pitch::{ChromaticPitch, Letter, Accidental};
     /// let middle_c = ChromaticPitch::new(Letter::C, Accidental::Natural, 4);
     /// assert_eq!(middle_c.midi(), 60);
     /// ```
@@ -125,7 +125,7 @@ impl ChromaticPitch {
     ///
     /// # Examples
     /// ```
-    /// use muse_core::pitch::C4;
+    /// use musecode_core::pitch::C4;
     /// assert_eq!(C4.midi(), 60);
     /// ```
     pub fn midi(&self) -> i32 {
@@ -211,7 +211,7 @@ pub enum IntervalQuality {
 ///
 /// # Examples
 /// ```
-/// use muse_core::prelude::*;
+/// use musecode_core::prelude::*;
 /// // All three style produce the same chromatic output in C major
 /// let chromatic  = n(C4,    q());    // explicit
 /// let by_degree  = n(d!(1), q());    // resolves to C in C major

@@ -21,7 +21,7 @@ use crate::time::{Dynamics, Tempo, TimeSig};
 ///
 /// # Examples
 /// ```
-/// use muse_core::prelude::*;
+/// use musecode_core::prelude::*;
 /// let phrase = seq![n(d!(1), q()), n(d!(3), q()), n(d!(5), h())]
 ///     .modify(Control::Key(Key::minor(pc!(F))))
 ///     .modify(Control::Tempo(Tempo::bpm(96)))

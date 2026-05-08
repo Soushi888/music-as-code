@@ -20,7 +20,7 @@ impl Music {
     ///
     /// # Examples
     /// ```
-    /// use muse_core::prelude::*;
+    /// use musecode_core::prelude::*;
     /// let up_fifth = n(C4, q()).transpose(7);   // sounds as G4
     /// let down_oct = n(A4, q()).transpose(-12); // sounds as A3
     /// ```
@@ -50,7 +50,7 @@ impl Music {
     ///
     /// # Examples
     /// ```
-    /// use muse_core::prelude::*;
+    /// use musecode_core::prelude::*;
     /// let augmented = seq![n(C4, q()), n(E4, e())].augment(h());
     /// // durations become: h(), q()
     /// ```
@@ -75,7 +75,7 @@ impl Music {
     ///
     /// # Examples
     /// ```
-    /// use muse_core::prelude::*;
+    /// use musecode_core::prelude::*;
     /// // Accent every note at velocity 100
     /// let accented = melody.map_notes(|mut note| {
     ///     note.attrs.velocity = Some(100);
@@ -116,7 +116,7 @@ impl Music {
     ///
     /// # Examples
     /// ```
-    /// use muse_core::prelude::*;
+    /// use musecode_core::prelude::*;
     /// let forward  = seq![n(C4, q()), n(E4, q()), n(G4, h())];
     /// let backward = forward.retrograde(); // G4 h, E4 q, C4 q
     /// ```
@@ -140,7 +140,7 @@ impl Music {
     ///
     /// # Examples
     /// ```
-    /// use muse_core::prelude::*;
+    /// use musecode_core::prelude::*;
     /// // Invert around C4 (MIDI 60): G4 (67) becomes F3 (53)
     /// let inverted = n(G4, q()).invert(C4.midi());
     /// ```
@@ -228,7 +228,7 @@ pub fn humanize(seed: u64, amount: f32) -> impl Fn(Music) -> Music {
 /// [`Music::pipe`] to apply inline:
 ///
 /// ```ignore
-/// use muse_core::prelude::*;
+/// use musecode_core::prelude::*;
 /// let two_voice = melody.pipe(canon(vec![
 ///     (b(0, 1), 0),   // original voice
 ///     (q(),     7),   // canon entry: one quarter later, a fifth above

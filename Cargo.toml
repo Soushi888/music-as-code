@@ -1,3 +1,3 @@
 [workspace]
-members = ["muse_core"]
+members = ["musecode_core"]
 resolver = "2"
