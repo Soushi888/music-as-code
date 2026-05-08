@@ -1,3 +1,9 @@
+//! The core five-constructor [`Music`] ADT and smart constructors.
+//!
+//! Everything playable decomposes into a tree of five node types: [`Music::Note`],
+//! [`Music::Rest`], [`Music::Seq`], [`Music::Par`], and [`Music::Modify`].
+//! Sequential composition uses `+`, parallel uses `|`, repeat uses `* n`.
+
 use std::ops::{Add, BitOr, Mul};
 
 use serde::{Deserialize, Serialize};
@@ -9,6 +15,7 @@ use crate::time::Beats;
 
 // === Core ADT ===
 
+/// A single sounded event with pitch, duration, and performance attributes.
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub struct Note {
     pub pitch: Pitch,
@@ -102,7 +109,11 @@ impl Mul<usize> for Music {
 
 /// Create a note from anything that converts to `Pitch`.
 pub fn n(pitch: impl Into<Pitch>, dur: Beats) -> Music {
-    Music::Note(Note { pitch: pitch.into(), dur, attrs: Default::default() })
+    Music::Note(Note {
+        pitch: pitch.into(),
+        dur,
+        attrs: Default::default(),
+    })
 }
 
 /// Create a rest.

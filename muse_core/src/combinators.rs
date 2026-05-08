@@ -1,5 +1,14 @@
+//! Musical combinators: pure transformations on [`Music`] trees.
+//!
+//! All functions here are purely functional: they take a `Music` value and
+//! return a transformed one. No mutation, no side effects. Compose freely:
+//!
+//! ```ignore
+//! melody.transpose(5).augment(h()).pipe(canon(vec![(q(), 7)]))
+//! ```
+
 use crate::control::Control;
-use crate::music::{Music, Note, r};
+use crate::music::{r, Music, Note};
 use crate::time::Beats;
 
 impl Music {
@@ -52,9 +61,7 @@ impl Music {
     /// Retrograde: reverse sequential ordering within Seq nodes.
     pub fn retrograde(self) -> Music {
         match self {
-            Music::Seq(v) => {
-                Music::Seq(v.into_iter().map(|m| m.retrograde()).rev().collect())
-            }
+            Music::Seq(v) => Music::Seq(v.into_iter().map(|m| m.retrograde()).rev().collect()),
             Music::Par(v) => Music::Par(v.into_iter().map(|m| m.retrograde()).collect()),
             Music::Modify(ctrl, body) => Music::Modify(ctrl, Box::new(body.retrograde())),
             leaf => leaf,
@@ -71,7 +78,10 @@ impl Music {
                 let oct = (new_midi / 12) - 1;
                 let pc_idx = new_midi.rem_euclid(12);
                 let (letter, acc) = midi_class_to_natural(pc_idx);
-                cp.class = crate::pitch::PitchClass { letter, accidental: acc };
+                cp.class = crate::pitch::PitchClass {
+                    letter,
+                    accidental: acc,
+                };
                 cp.octave = oct as i8;
             }
             note
@@ -84,9 +94,7 @@ impl Music {
     }
 }
 
-fn midi_class_to_natural(
-    semitone: i32,
-) -> (crate::pitch::Letter, crate::pitch::Accidental) {
+fn midi_class_to_natural(semitone: i32) -> (crate::pitch::Letter, crate::pitch::Accidental) {
     use crate::pitch::{Accidental, Letter};
     match semitone {
         0 => (Letter::C, Accidental::Natural),

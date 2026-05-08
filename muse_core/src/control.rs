@@ -1,3 +1,9 @@
+//! Context modifiers: the [`Control`] enum applied via [`crate::music::Music::Modify`].
+//!
+//! A `Control` wraps a subtree and changes how that subtree is interpreted:
+//! key, scale, tempo, transposition, dynamics, and backend-specific hints.
+//! Controls nest; inner values shadow outer ones.
+
 use serde::{Deserialize, Serialize};
 
 use crate::attrs::{Articulation, InstrumentId, VoiceId};

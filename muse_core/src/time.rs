@@ -1,3 +1,9 @@
+//! Rational time: the [`Beats`] type alias and duration helpers.
+//!
+//! All durations are exact rational numbers (`num_rational::Rational32`).
+//! A quarter note is `q() = 1/1`, an eighth is `e() = 1/2`, a dotted quarter
+//! is `dot(q()) = 3/2`. No floating-point drift.
+
 use num_rational::Rational32;
 use serde::{Deserialize, Serialize};
 
@@ -17,17 +23,33 @@ pub fn triplet(d: Beats) -> Beats {
 }
 
 // Duration helpers (can't be `const` because Rational32::new is not const fn)
-pub fn w() -> Beats { b(4, 1) }
-pub fn h() -> Beats { b(2, 1) }
-pub fn q() -> Beats { b(1, 1) }
-pub fn e() -> Beats { b(1, 2) }
-pub fn s() -> Beats { b(1, 4) }
-pub fn ts() -> Beats { b(1, 8) }   // thirty-second
+pub fn w() -> Beats {
+    b(4, 1)
+}
+pub fn h() -> Beats {
+    b(2, 1)
+}
+pub fn q() -> Beats {
+    b(1, 1)
+}
+pub fn e() -> Beats {
+    b(1, 2)
+}
+pub fn s() -> Beats {
+    b(1, 4)
+}
+pub fn ts() -> Beats {
+    b(1, 8)
+} // thirty-second
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum Tempo {
     Fixed(u32),
-    Ramp { from_bpm: u32, to_bpm: u32, over_beats: u32 },
+    Ramp {
+        from_bpm: u32,
+        to_bpm: u32,
+        over_beats: u32,
+    },
 }
 
 impl Tempo {
@@ -44,12 +66,21 @@ pub struct TimeSig {
 
 impl TimeSig {
     pub fn new(numerator: u8, denominator: u8) -> Self {
-        Self { numerator, denominator }
+        Self {
+            numerator,
+            denominator,
+        }
     }
 
-    pub fn common() -> Self { Self::new(4, 4) }
-    pub fn cut() -> Self { Self::new(2, 2) }
-    pub fn waltz() -> Self { Self::new(3, 4) }
+    pub fn common() -> Self {
+        Self::new(4, 4)
+    }
+    pub fn cut() -> Self {
+        Self::new(2, 2)
+    }
+    pub fn waltz() -> Self {
+        Self::new(3, 4)
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]

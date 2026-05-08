@@ -1,3 +1,9 @@
+//! Content-addressed musical fragments: [`Phrase`] and [`RenderCache`].
+//!
+//! A `Phrase` wraps a `Music` tree in an `Arc` and stores its Blake3 hash.
+//! The `RenderCache` maps `(hash, BackendId)` to rendered output, so
+//! unchanged subtrees are never re-rendered.
+
 use std::sync::Arc;
 
 use crate::attrs::BackendId;
@@ -14,7 +20,10 @@ impl Phrase {
     pub fn new(m: Music) -> Self {
         let bytes = bincode::serialize(&m).expect("Music must be serializable");
         let hash = blake3::hash(&bytes);
-        Self { inner: Arc::new(m), hash }
+        Self {
+            inner: Arc::new(m),
+            hash,
+        }
     }
 
     pub fn hash(&self) -> &blake3::Hash {
@@ -41,10 +50,16 @@ pub struct RenderCache<O> {
 
 impl<O> RenderCache<O> {
     pub fn new() -> Self {
-        Self { map: dashmap::DashMap::new() }
+        Self {
+            map: dashmap::DashMap::new(),
+        }
     }
 
-    pub fn get(&self, hash: &blake3::Hash, backend: &BackendId) -> Option<dashmap::mapref::one::Ref<'_, (blake3::Hash, BackendId), O>> {
+    pub fn get(
+        &self,
+        hash: &blake3::Hash,
+        backend: &BackendId,
+    ) -> Option<dashmap::mapref::one::Ref<'_, (blake3::Hash, BackendId), O>> {
         self.map.get(&(hash.clone(), backend.clone()))
     }
 

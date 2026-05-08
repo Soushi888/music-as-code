@@ -1,3 +1,9 @@
+//! Backend hints: metadata that lives alongside the IR, not inside it.
+//!
+//! A backend that doesn't understand a hint ignores it. A backend that needs
+//! information not present in hints synthesizes a reasonable default.
+//! This keeps the core [`Music`][crate::music::Music] IR target-agnostic.
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]

@@ -1,3 +1,8 @@
+//! Shared attribute types: ID newtypes, [`Articulation`], and [`NoteAttrs`].
+//!
+//! These are leaf types imported by both `music` and `control` to avoid
+//! circular module dependencies.
+
 use serde::{Deserialize, Serialize};
 
 use crate::backends::BackendHint;

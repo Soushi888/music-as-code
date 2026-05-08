@@ -1,3 +1,10 @@
+//! Music theory layer: keys, scales, modes, chords, and voicings.
+//!
+//! These types let you write music in terms of harmonic intent
+//! (`Key::minor(pc!(F))`, `ChordQuality::HalfDiminished`) rather than
+//! raw chromatic pitches. Resolution to [`ChromaticPitch`][crate::pitch::ChromaticPitch]
+//! happens at render time via the accumulated `Control` context.
+
 use serde::{Deserialize, Serialize};
 
 use crate::pitch::PitchClass;
@@ -29,11 +36,17 @@ impl Key {
     }
 
     pub fn major(tonic: PitchClass) -> Self {
-        Self { tonic, mode: Mode::Major }
+        Self {
+            tonic,
+            mode: Mode::Major,
+        }
     }
 
     pub fn minor(tonic: PitchClass) -> Self {
-        Self { tonic, mode: Mode::Minor }
+        Self {
+            tonic,
+            mode: Mode::Minor,
+        }
     }
 }
 
@@ -45,19 +58,31 @@ pub struct Scale {
 
 impl Scale {
     pub fn major() -> Self {
-        Self { intervals: vec![0, 2, 4, 5, 7, 9, 11], name: Some("major".to_string()) }
+        Self {
+            intervals: vec![0, 2, 4, 5, 7, 9, 11],
+            name: Some("major".to_string()),
+        }
     }
 
     pub fn natural_minor() -> Self {
-        Self { intervals: vec![0, 2, 3, 5, 7, 8, 10], name: Some("natural_minor".to_string()) }
+        Self {
+            intervals: vec![0, 2, 3, 5, 7, 8, 10],
+            name: Some("natural_minor".to_string()),
+        }
     }
 
     pub fn harmonic_minor() -> Self {
-        Self { intervals: vec![0, 2, 3, 5, 7, 8, 11], name: Some("harmonic_minor".to_string()) }
+        Self {
+            intervals: vec![0, 2, 3, 5, 7, 8, 11],
+            name: Some("harmonic_minor".to_string()),
+        }
     }
 
     pub fn custom(intervals: Vec<i8>) -> Self {
-        Self { intervals, name: None }
+        Self {
+            intervals,
+            name: None,
+        }
     }
 }
 
@@ -84,9 +109,15 @@ pub struct Extension {
 }
 
 impl Extension {
-    pub fn new(degree: u8) -> Self { Self { degree, alter: 0 } }
-    pub fn flat(degree: u8) -> Self { Self { degree, alter: -1 } }
-    pub fn sharp(degree: u8) -> Self { Self { degree, alter: 1 } }
+    pub fn new(degree: u8) -> Self {
+        Self { degree, alter: 0 }
+    }
+    pub fn flat(degree: u8) -> Self {
+        Self { degree, alter: -1 }
+    }
+    pub fn sharp(degree: u8) -> Self {
+        Self { degree, alter: 1 }
+    }
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
@@ -99,7 +130,12 @@ pub struct Chord {
 
 impl Chord {
     pub fn new(root: PitchClass, quality: ChordQuality) -> Self {
-        Self { root, quality, extensions: vec![], bass: None }
+        Self {
+            root,
+            quality,
+            extensions: vec![],
+            bass: None,
+        }
     }
 
     pub fn with_extension(mut self, ext: Extension) -> Self {
