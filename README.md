@@ -2,7 +2,7 @@
 
 **Music as code.** A Rust DSL for composing, transforming, and rendering music from source.
 
-Write a Piazzolla-flavored ii-V-I in F minor, render it to LilyPond PDF, MIDI, and audio — all from the same source file. Change the key, reharmonize, invert the melody, add a canon voice. The same tree produces every output.
+Write a Piazzolla-flavored ii-V-I in F minor, render it to LilyPond PDF, MIDI, and audio, all from the same source file. Change the key, reharmonize, invert the melody, add a canon voice. The same tree produces every output.
 
 ---
 
@@ -104,9 +104,9 @@ pub enum Music {
 
 ```rust
 pub enum Pitch {
-    Chromatic(ChromaticPitch),   // C4, Eb5 — explicit
-    Degree(Degree),              // 1, b3, #7 — relative to Key context
-    Interval(Interval),          // M3, P5 — relative to previous note
+    Chromatic(ChromaticPitch),   // C4, Eb5: explicit
+    Degree(Degree),              // 1, b3, #7: relative to Key context
+    Interval(Interval),          // M3, P5: relative to previous note
 }
 ```
 
