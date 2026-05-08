@@ -1,6 +1,6 @@
 # API Reference
 
-Complete public API for `muse_core`. Import everything via `use muse_core::prelude::*`.
+Complete public API for `musecode_core`. Import everything via `use musecode_core::prelude::*`.
 
 ---
 
@@ -162,7 +162,7 @@ pub enum Dynamics { Ppp, Pp, P, Mp, Mf, F, Ff, Fff, Sfz, Fp, Crescendo, Decresce
 
 ## `music`
 
-The core module. Import `use muse_core::prelude::*` to access everything.
+The core module. Import `use musecode_core::prelude::*` to access everything.
 
 ### Types
 
@@ -223,7 +223,7 @@ All pitches sounding simultaneously for `dur` beats. Returns a `Par` of notes.
 ### Usage Examples
 
 ```rust
-use muse_core::prelude::*;
+use musecode_core::prelude::*;
 
 // Single note: C4, quarter duration
 let c = n(C4, q());

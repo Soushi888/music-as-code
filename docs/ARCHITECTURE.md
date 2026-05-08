@@ -1,6 +1,6 @@
 # Architecture
 
-`muse_core` is the kernel of the `muse` musical DSL. It is small by design: five core ADT constructors, a polymorphic pitch hierarchy, rational time, and content-addressed fragments. Every higher-level construct (chord voicings, canon, swing) is built from these primitives without extending the core types.
+`musecode_core` is the kernel of the `muse` musical DSL. It is small by design: five core ADT constructors, a polymorphic pitch hierarchy, rational time, and content-addressed fragments. Every higher-level construct (chord voicings, canon, swing) is built from these primitives without extending the core types.
 
 ---
 

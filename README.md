@@ -1,6 +1,6 @@
-# muse
+# MuseCode
 
-**Music as code.** A Rust DSL for composing, transforming, and rendering music from source.
+**Music as Code.** A Rust DSL for composing, transforming, and rendering music from source.
 
 Write a Piazzolla-flavored ii-V-I in F minor, render it to LilyPond PDF, MIDI, and audio, all from the same source file. Change the key, reharmonize, invert the melody, add a canon voice. The same tree produces every output.
 
@@ -20,7 +20,7 @@ Write a Piazzolla-flavored ii-V-I in F minor, render it to LilyPond PDF, MIDI, a
 ## Quick Start
 
 ```rust
-use muse_core::prelude::*;
+use musecode_core::prelude::*;
 
 // Three ways to write the same C major triad
 let explicit   = seq![n(C4, q()), n(E4, q()), n(G4, h())];
@@ -119,7 +119,7 @@ A melody written with `Degree` pitches reharmonizes freely: wrap the same `Music
 A Piazzolla-flavored four-bar sketch showing bass, comping, and melody together:
 
 ```rust
-use muse_core::prelude::*;
+use musecode_core::prelude::*;
 
 fn main() {
     let key = Key::minor(pc!(F));
@@ -163,7 +163,7 @@ The melody is in scale-degree space: change `pc!(F)` to `pc!(C)` and the `tango`
 ## Crate Layout
 
 ```
-muse_core/src/
+musecode_core/src/
 ├── lib.rs            crate root, module declarations
 ├── prelude.rs        re-exports the full public API
 ├── pitch.rs          Layer 1: pitch types and constants
