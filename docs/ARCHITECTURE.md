@@ -1,31 +1,30 @@
 # Architecture
 
-`muse_core` is the kernel of the `muse` musical DSL. It is small by design: five core ADT constructors, a polymorphic pitch hierarchy, rational time, and content-addressed fragments. Every higher-level construct — chord voicings, canon, swing — is built from these primitives without extending the core types.
+`muse_core` is the kernel of the `muse` musical DSL. It is small by design: five core ADT constructors, a polymorphic pitch hierarchy, rational time, and content-addressed fragments. Every higher-level construct (chord voicings, canon, swing) is built from these primitives without extending the core types.
 
 ---
 
 ## Module Dependency Graph
 
-```
-                    ┌─────────────────────────────────────────┐
-                    │               prelude                   │
-                    │          (re-exports everything)        │
-                    └───────────────────┬─────────────────────┘
-                                        │ imports all
-          ┌─────────────────────────────┼──────────────────────┐
-          │                             │                      │
-          ▼                             ▼                      ▼
-      phrase ◄──── music ◄───── control ◄──── theory ◄─── pitch  (leaf)
-                     │               │                         ▲
-                     │               │            ┌────────────┘
-                     └──────► attrs ◄┘            │
-                                 │                │
-                                 ▼                │
-                            backends/hints        │
-                            (leaf)          time  (leaf)
+```mermaid
+graph TD
+    prelude["prelude<br/>(re-exports everything)"]
+
+    pitch(["pitch (leaf)"])
+    time(["time (leaf)"])
+    hints(["backends/hints (leaf)"])
+
+    prelude -.->|re-exports| pitch & time & hints & attrs & theory & control & music & combinators & phrase
+
+    attrs --> hints
+    theory --> pitch
+    control --> pitch & time & attrs & theory & hints
+    music --> pitch & time & attrs & control
+    combinators --> music & control & time
+    phrase --> music & attrs
 ```
 
-**Arrows mean "imports from."** No cycles.
+**Solid arrows mean "imports from." Dashed arrows are re-exports from `prelude`.** No cycles.
 
 | Module | Imports from |
 |--------|-------------|
@@ -58,7 +57,7 @@ The pitch hierarchy has three tiers:
 
 ### Layer 2: Time (`time`)
 
-`Beats = Rational32` from the `num-rational` crate. Quarter note = `1/1`, eighth = `1/2`, dotted quarter = `3/2`. Duration arithmetic is exact integer arithmetic — no floating-point accumulation.
+`Beats = Rational32` from the `num-rational` crate. Quarter note = `1/1`, eighth = `1/2`, dotted quarter = `3/2`. Duration arithmetic is exact integer arithmetic with no floating-point accumulation.
 
 Duration helpers are functions rather than `const` items because `Rational32::new` is not a `const fn`.
 
@@ -66,13 +65,14 @@ Duration helpers are functions rather than `const` items because `Rational32::ne
 
 The `Music` enum has exactly five constructors:
 
-```
-Music
- ├── Note(Note)                     leaf: a sounded event
- ├── Rest(Beats)                    leaf: silence
- ├── Seq(Vec<Music>)                sequential composition
- ├── Par(Vec<Music>)                parallel composition
- └── Modify(Control, Box<Music>)    context scoping
+```mermaid
+graph TD
+    M["Music (enum)"]
+    M --> N["Note(Note)<br/>leaf: sounded event"]
+    M --> R["Rest(Beats)<br/>leaf: silence"]
+    M --> S["Seq(Vec&lt;Music&gt;)<br/>sequential composition"]
+    M --> P["Par(Vec&lt;Music&gt;)<br/>parallel composition"]
+    M --> Mo["Modify(Control, Box&lt;Music&gt;)<br/>context scoping"]
 ```
 
 `Seq` and `Par` flatten on composition: the `Add` and `BitOr` operator implementations merge adjacent sequences and parallels instead of nesting them. A chain `a + b + c + d` produces `Seq([a, b, c, d])`, not `Seq([Seq([Seq([a, b]), c]), d])`. Tree depth stays proportional to actual musical structure.
@@ -81,7 +81,7 @@ Music
 
 ### Layer 4: Theory (`theory`, `control`)
 
-`Key`, `Scale`, `Mode`, `Chord`, `ChordQuality`, `Extension`, and `Voicing` live here. These are purely data types — no resolution logic. Resolution (mapping a `Degree` in key F minor to a specific `ChromaticPitch`) belongs in the rendering backend.
+`Key`, `Scale`, `Mode`, `Chord`, `ChordQuality`, `Extension`, and `Voicing` live here. These are purely data types with no resolution logic. Resolution (mapping a `Degree` in key F minor to a specific `ChromaticPitch`) belongs in the rendering backend.
 
 `Control` is a 12-variant enum of modifiers that can be wrapped around any `Music` subtree.
 
@@ -111,9 +111,9 @@ Free functions (stubs pending implementation): `swing`, `humanize`, `canon`.
 
 `BackendHint` is an additive metadata enum attached to `NoteAttrs`. Three sub-enums:
 
-- `LilypondHint` — stem direction, beam marks, raw `\markup` escapes, layout flags
-- `MidiHint` — program change, channel, CC values
-- `AudioHint` — keyswitch note, articulation name, mic position, round-robin index
+- `LilypondHint`: stem direction, beam marks, raw `\markup` escapes, layout flags
+- `MidiHint`: program change, channel, CC values
+- `AudioHint`: keyswitch note, articulation name, mic position, round-robin index
 
 A backend that doesn't understand a hint ignores it. The IR itself (`Music`) carries no backend-specific state.
 
@@ -141,7 +141,7 @@ Rust's type system could express "a `Music<P>` parameterized by pitch type P" wi
 
 ### Why `attrs` as a separate module?
 
-To prevent a circular dependency. Both `music` and `control` need `Articulation`, `NoteAttrs`, and `VoiceId`. If these lived in `music`, then `control` would need to import `music` — but `music` imports `control` for the `Music::Modify` constructor. `attrs` as a shared leaf breaks the cycle cleanly.
+To prevent a circular dependency. Both `music` and `control` need `Articulation`, `NoteAttrs`, and `VoiceId`. If these lived in `music`, then `control` would need to import `music`, but `music` imports `control` for the `Music::Modify` constructor. `attrs` as a shared leaf breaks the cycle cleanly.
 
 ---
 
