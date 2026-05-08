@@ -1,0 +1,16 @@
+[package]
+name = "muse_core"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["lib"]
+
+[dependencies]
+num-rational = { version = "0.4", features = ["serde"] }
+num-integer = "0.1"
+num-traits = "0.2"
+blake3 = "1"
+bincode = "1"
+dashmap = "5"
+serde = { version = "1", features = ["derive"] }
