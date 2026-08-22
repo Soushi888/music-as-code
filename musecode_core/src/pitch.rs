@@ -24,6 +24,44 @@ pub enum Letter {
     B,
 }
 
+impl Letter {
+    /// The seven letters in ascending order from C.
+    pub const ALL: [Letter; 7] =
+        [Letter::C, Letter::D, Letter::E, Letter::F, Letter::G, Letter::A, Letter::B];
+
+    /// Position in the letter cycle: C = 0 through B = 6.
+    pub fn index(self) -> i32 {
+        match self {
+            Letter::C => 0,
+            Letter::D => 1,
+            Letter::E => 2,
+            Letter::F => 3,
+            Letter::G => 4,
+            Letter::A => 5,
+            Letter::B => 6,
+        }
+    }
+
+    /// The letter `steps` positions away in the cycle, wrapping in both
+    /// directions: `Letter::B.step(1) == Letter::C`, `Letter::C.step(-2) == Letter::A`.
+    pub fn step(self, steps: i32) -> Letter {
+        Letter::ALL[(self.index() + steps).rem_euclid(7) as usize]
+    }
+
+    /// Semitones of the natural letter above C: C 0, D 2, E 4, F 5, G 7, A 9, B 11.
+    pub fn semitones(self) -> i32 {
+        match self {
+            Letter::C => 0,
+            Letter::D => 2,
+            Letter::E => 4,
+            Letter::F => 5,
+            Letter::G => 7,
+            Letter::A => 9,
+            Letter::B => 11,
+        }
+    }
+}
+
 /// Chromatic alteration applied to a [`Letter`].
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
 pub enum Accidental {
@@ -37,6 +75,31 @@ pub enum Accidental {
     Sharp,
     /// Two semitones above natural (𝄪).
     DoubleSharp,
+}
+
+impl Accidental {
+    /// Semitone offset from the natural: `-2..=2`.
+    pub fn offset(self) -> i32 {
+        match self {
+            Accidental::DoubleFlat => -2,
+            Accidental::Flat => -1,
+            Accidental::Natural => 0,
+            Accidental::Sharp => 1,
+            Accidental::DoubleSharp => 2,
+        }
+    }
+
+    /// The accidental for a semitone offset, or `None` outside `-2..=2`.
+    pub fn from_offset(offset: i32) -> Option<Accidental> {
+        Some(match offset {
+            -2 => Accidental::DoubleFlat,
+            -1 => Accidental::Flat,
+            0 => Accidental::Natural,
+            1 => Accidental::Sharp,
+            2 => Accidental::DoubleSharp,
+            _ => return None,
+        })
+    }
 }
 
 /// A pitch class: letter + accidental, without octave information.
@@ -65,23 +128,14 @@ impl PitchClass {
     /// assert_eq!(pc!(A).semitones(), 9);
     /// ```
     pub fn semitones(&self) -> i32 {
-        let base: i32 = match self.letter {
-            Letter::C => 0,
-            Letter::D => 2,
-            Letter::E => 4,
-            Letter::F => 5,
-            Letter::G => 7,
-            Letter::A => 9,
-            Letter::B => 11,
-        };
-        let alter: i32 = match self.accidental {
-            Accidental::DoubleFlat => -2,
-            Accidental::Flat => -1,
-            Accidental::Natural => 0,
-            Accidental::Sharp => 1,
-            Accidental::DoubleSharp => 2,
-        };
-        (base + alter).rem_euclid(12)
+        self.offset().rem_euclid(12)
+    }
+
+    /// Semitones relative to C-natural **without wrapping**: `Cb` is `-1`,
+    /// `B#` is `12`. This is what octave arithmetic needs; [`semitones`][Self::semitones]
+    /// is the wrapped form for pitch-class comparisons.
+    pub fn offset(&self) -> i32 {
+        self.letter.semitones() + self.accidental.offset()
     }
 
     /// Construct an unaltered (natural) pitch class from a letter name.
@@ -120,16 +174,44 @@ impl ChromaticPitch {
 
     /// Returns the MIDI note number for this pitch.
     ///
-    /// C4 = 60. The formula is `12 * (octave + 1) + semitones_above_c`.
-    /// Valid MIDI range is 0–127; values outside this range are not clamped.
+    /// C4 = 60. The formula is `12 * (octave + 1) + letter_semitones + accidental`,
+    /// so an accidental may cross the octave line: Cb5 is 71 (the same key as
+    /// B4) and B#3 is 60. Valid MIDI range is 0–127; values outside this range
+    /// are not clamped.
     ///
     /// # Examples
     /// ```
-    /// use musecode_core::pitch::C4;
+    /// use musecode_core::pitch::{Accidental, ChromaticPitch, Letter, C4};
     /// assert_eq!(C4.midi(), 60);
+    /// assert_eq!(ChromaticPitch::new(Letter::C, Accidental::Flat, 5).midi(), 71);
     /// ```
     pub fn midi(&self) -> i32 {
-        12 * (self.octave as i32 + 1) + self.class.semitones()
+        12 * (self.octave as i32 + 1) + self.class.offset()
+    }
+
+    /// Spell a MIDI note number with a given letter, choosing the accidental
+    /// and octave that make it sound right.
+    ///
+    /// Returns `None` when no accidental in `DoubleFlat..=DoubleSharp` reaches
+    /// the target from that letter (MIDI 63 cannot be spelled with `C`).
+    /// The octave follows the letter, not the sounding pitch: MIDI 71 spelled
+    /// with `C` is Cb5, not Cb4.
+    ///
+    /// # Examples
+    /// ```
+    /// use musecode_core::pitch::{Accidental, ChromaticPitch, Letter};
+    /// let cb5 = ChromaticPitch::with_letter(71, Letter::C).unwrap();
+    /// assert_eq!(cb5, ChromaticPitch::new(Letter::C, Accidental::Flat, 5));
+    /// assert_eq!(ChromaticPitch::with_letter(63, Letter::C), None);
+    /// ```
+    pub fn with_letter(midi: i32, letter: Letter) -> Option<Self> {
+        let natural = letter.semitones();
+        // Offset from the letter's natural, folded into -6..=5 so the nearest
+        // octave of that letter is chosen.
+        let offset = (midi - natural + 6).rem_euclid(12) - 6;
+        let accidental = Accidental::from_offset(offset)?;
+        let octave = (midi - natural - offset) / 12 - 1;
+        Some(Self { class: PitchClass { letter, accidental }, octave: octave as i8 })
     }
 
     /// Construct a pitch from a MIDI note number, spelled with sharps.
@@ -392,11 +474,41 @@ mod tests {
     }
 
     #[test]
+    fn with_letter_spells_across_the_octave_line() {
+        assert_eq!(ChromaticPitch::with_letter(60, Letter::B), Some(ChromaticPitch::new(Letter::B, Accidental::Sharp, 3)));
+        assert_eq!(ChromaticPitch::with_letter(70, Letter::B), Some(BB4));
+        assert_eq!(ChromaticPitch::with_letter(70, Letter::A), Some(AS4));
+        assert_eq!(ChromaticPitch::with_letter(67, Letter::A), Some(ChromaticPitch::new(Letter::A, Accidental::DoubleFlat, 4)));
+        assert_eq!(ChromaticPitch::with_letter(64, Letter::C), None);
+        for m in -12..=140 {
+            for letter in Letter::ALL {
+                if let Some(p) = ChromaticPitch::with_letter(m, letter) {
+                    assert_eq!(p.midi(), m, "{p:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn letter_step_wraps_both_ways() {
+        assert_eq!(Letter::B.step(1), Letter::C);
+        assert_eq!(Letter::C.step(-2), Letter::A);
+        assert_eq!(Letter::F.step(4), Letter::C);
+        assert_eq!(Letter::D.step(7), Letter::D);
+    }
+
+    #[test]
     fn from_midi_matches_the_named_constants() {
         assert_eq!(ChromaticPitch::from_midi(48), C3);
         assert_eq!(ChromaticPitch::from_midi(59), B3);
         assert_eq!(ChromaticPitch::from_midi(60), C4);
         assert_eq!(ChromaticPitch::from_midi(66), FS4);
         assert_eq!(ChromaticPitch::from_midi(83), B5);
+    }
+    #[test]
+    fn midi_honours_accidentals_that_cross_the_octave_line() {
+        assert_eq!(ChromaticPitch::new(Letter::C, Accidental::Flat, 5).midi(), 71);
+        assert_eq!(ChromaticPitch::new(Letter::B, Accidental::Sharp, 3).midi(), 60);
+        assert_eq!(ChromaticPitch::new(Letter::C, Accidental::DoubleFlat, 4).midi(), 58);
     }
 }
