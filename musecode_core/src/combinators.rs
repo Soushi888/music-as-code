@@ -76,6 +76,7 @@ impl Music {
     /// # Examples
     /// ```
     /// use musecode_core::prelude::*;
+    /// let melody = seq![n(C4, q()), n(E4, q()), n(G4, h())];
     /// // Accent every note at velocity 100
     /// let accented = melody.map_notes(|mut note| {
     ///     note.attrs.velocity = Some(100);
