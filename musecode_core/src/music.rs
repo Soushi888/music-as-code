@@ -277,6 +277,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::erasing_op)] // `m * 0` is the documented way to write zero repeats
     fn empty_seq_and_par_are_zero() {
         assert_eq!(Music::Seq(vec![]).duration(), b(0, 1));
         assert_eq!(Music::Par(vec![]).duration(), b(0, 1));
