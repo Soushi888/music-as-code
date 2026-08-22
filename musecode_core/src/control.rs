@@ -4,6 +4,8 @@
 //! key, scale, tempo, transposition, dynamics, and backend-specific hints.
 //! Controls nest; inner values shadow outer ones.
 
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 
 use crate::attrs::{Articulation, InstrumentId, VoiceId};
@@ -65,4 +67,27 @@ pub enum Control {
     /// understand it. Use this as an escape hatch for backend-specific
     /// features not covered by other variants.
     User(String, String),
+}
+
+impl fmt::Display for Control {
+    /// The control head of a `modify` element: `key(F minor)`, `tempo(96)`,
+    /// `time(4/4)`, `transpose(7)`, `transpose_diatonic(-1)`, `dyn(mf)`,
+    /// `art(staccato)`, `voice(left)`, `instrument(bandoneon)`,
+    /// `scale(0 2 4 7 9)`, `hint(Midi(Channel(3)))`, `user("k" "v")`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Control::Tempo(t) => write!(f, "tempo({t})"),
+            Control::TimeSignature(ts) => write!(f, "time({ts})"),
+            Control::Key(k) => write!(f, "key({k})"),
+            Control::Scale(s) => write!(f, "scale({s})"),
+            Control::Instrument(i) => write!(f, "instrument({})", i.0),
+            Control::Transpose(n) => write!(f, "transpose({n})"),
+            Control::DiatonicTranspose(n) => write!(f, "transpose_diatonic({n})"),
+            Control::Dynamics(d) => write!(f, "dyn({d})"),
+            Control::Articulation(a) => write!(f, "art({a})"),
+            Control::Voice(v) => write!(f, "voice({})", v.0),
+            Control::Hint(h) => write!(f, "hint({h:?})"),
+            Control::User(k, v) => write!(f, "user({k:?} {v:?})"),
+        }
+    }
 }

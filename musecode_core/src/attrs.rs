@@ -3,6 +3,8 @@
 //! These are leaf types imported by both `music` and `control` to avoid
 //! circular module dependencies.
 
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 
 use crate::backends::BackendHint;
@@ -71,6 +73,29 @@ pub enum Articulation {
     HarmonicArtificial,
 }
 
+impl fmt::Display for Articulation {
+    /// Lowercase snake-case names: `staccato`, `harmonic_natural`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Articulation::Staccato => "staccato",
+            Articulation::Staccatissimo => "staccatissimo",
+            Articulation::Tenuto => "tenuto",
+            Articulation::Accent => "accent",
+            Articulation::Marcato => "marcato",
+            Articulation::Legato => "legato",
+            Articulation::Slur => "slur",
+            Articulation::Fermata => "fermata",
+            Articulation::Pizzicato => "pizzicato",
+            Articulation::Arco => "arco",
+            Articulation::Trill => "trill",
+            Articulation::Mordent => "mordent",
+            Articulation::Turn => "turn",
+            Articulation::HarmonicNatural => "harmonic_natural",
+            Articulation::HarmonicArtificial => "harmonic_artificial",
+        })
+    }
+}
+
 // === Note attributes ===
 
 /// Optional per-note performance attributes and backend metadata.
@@ -102,4 +127,36 @@ pub struct NoteAttrs {
     /// Backend-specific hints attached to this note. A backend reads only
     /// the variants it understands and ignores the rest.
     pub hints: Vec<BackendHint>,
+}
+
+impl fmt::Display for NoteAttrs {
+    /// The attribute suffix of a note: articulation shorthand (`-.` staccato,
+    /// `-!` staccatissimo, `--` tenuto, `->` accent, `-^` marcato, `-name` for
+    /// the rest), `~` for a tie, `@v<n>` velocity, `@voice(<id>)`, and one
+    /// `@hint(<debug>)` per hint. Empty for default attributes.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(a) = self.articulation {
+            match a {
+                Articulation::Staccato => f.write_str("-.")?,
+                Articulation::Staccatissimo => f.write_str("-!")?,
+                Articulation::Tenuto => f.write_str("--")?,
+                Articulation::Accent => f.write_str("->")?,
+                Articulation::Marcato => f.write_str("-^")?,
+                other => write!(f, "-{other}")?,
+            }
+        }
+        if self.tie_to_next {
+            f.write_str("~")?;
+        }
+        if let Some(v) = self.velocity {
+            write!(f, "@v{v}")?;
+        }
+        if let Some(voice) = &self.voice_id {
+            write!(f, "@voice({})", voice.0)?;
+        }
+        for hint in &self.hints {
+            write!(f, "@hint({hint:?})")?;
+        }
+        Ok(())
+    }
 }
