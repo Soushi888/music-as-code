@@ -33,3 +33,14 @@ test:
 
 # Check + test in one shot
 ci: check test
+
+# Run an example: prints its notation and summary, writes target/<NAME>.mid
+render NAME:
+    cargo run --example {{NAME}}
+
+# Render an example and play target/<NAME>.mid through fluidsynth (first soundfont found)
+play NAME: (render NAME)
+    fluidsynth -ni $(ls /usr/share/sounds/sf2/*.sf2 | head -1) target/{{NAME}}.mid
+
+# Alias for play
+listen NAME: (play NAME)
