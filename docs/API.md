@@ -293,7 +293,7 @@ Controls nest: wrapping a piece in `Modify(Control::Key(k), body)` changes key r
 ```rust
 pub enum Mode {
     Major, Minor, Dorian, Phrygian, Lydian, Mixolydian,
-    Aeolian, Locrian, HarmonicMinor, MelodicMinor, Custom(u32),
+    Locrian, HarmonicMinor, MelodicMinor, Custom(u32),
 }
 ```
 
@@ -378,7 +378,6 @@ pub struct PitchRange { pub low: i32, pub high: i32 }  // MIDI note numbers
 | `VoiceId(String)` | `String` | Identifies a voice or staff. |
 | `InstrumentId(String)` | `String` | Identifies an instrument patch. |
 | `BackendId(String)` | `String` | Identifies a rendering backend (for `RenderCache`). |
-| `ScaleId(String)` | `String` | Named scale reference. |
 
 All derive `Clone, PartialEq, Eq, Hash, Debug, Default, Serialize, Deserialize`.
 
@@ -479,7 +478,6 @@ melody
     .transpose(5)
     .augment(h())
     .pipe(canon(vec![(q(), 7), (h(), 4)]))
-    .pipe(humanize(42, 0.05))
 ```
 
 ### Free Functions
