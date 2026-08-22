@@ -9,6 +9,7 @@
 
 use crate::control::Control;
 use crate::music::{r, Music, Note};
+use crate::pitch::ChromaticPitch;
 use crate::time::Beats;
 
 impl Music {
@@ -149,12 +150,7 @@ impl Music {
         self.map_notes(move |mut note| {
             if let crate::pitch::Pitch::Chromatic(ref mut cp) = note.pitch {
                 let dist = cp.midi() - axis_midi;
-                let new_midi = axis_midi - dist;
-                let oct = (new_midi / 12) - 1;
-                let pc_idx = new_midi.rem_euclid(12);
-                let (letter, acc) = midi_class_to_natural(pc_idx);
-                cp.class = crate::pitch::PitchClass { letter, accidental: acc };
-                cp.octave = oct as i8;
+                *cp = ChromaticPitch::from_midi(axis_midi - dist);
             }
             note
         })
@@ -174,25 +170,6 @@ impl Music {
     /// ```
     pub fn pipe(self, f: impl FnOnce(Music) -> Music) -> Music {
         f(self)
-    }
-}
-
-fn midi_class_to_natural(semitone: i32) -> (crate::pitch::Letter, crate::pitch::Accidental) {
-    use crate::pitch::{Accidental, Letter};
-    match semitone {
-        0  => (Letter::C, Accidental::Natural),
-        1  => (Letter::C, Accidental::Sharp),
-        2  => (Letter::D, Accidental::Natural),
-        3  => (Letter::D, Accidental::Sharp),
-        4  => (Letter::E, Accidental::Natural),
-        5  => (Letter::F, Accidental::Natural),
-        6  => (Letter::F, Accidental::Sharp),
-        7  => (Letter::G, Accidental::Natural),
-        8  => (Letter::G, Accidental::Sharp),
-        9  => (Letter::A, Accidental::Natural),
-        10 => (Letter::A, Accidental::Sharp),
-        11 => (Letter::B, Accidental::Natural),
-        _  => unreachable!("semitone must be 0..=11"),
     }
 }
 
@@ -241,5 +218,36 @@ pub fn canon(voices: Vec<(Beats, i32)>) -> impl Fn(Music) -> Music {
             .iter()
             .map(|(offset, semis)| r(*offset) + melody.clone().transpose(*semis))
             .fold(Music::Par(vec![]), |acc, v| acc | v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::prelude::*;
+
+    /// `invert` is an involution on sharps-spelled chromatic trees. Spelling
+    /// round-trips only for sharps because `from_midi` is sharps-only; the
+    /// MIDI numbers round-trip for any spelling.
+    #[test]
+    fn invert_is_an_involution() {
+        let tree = seq![n(C4, q()), n(DS4, e()), n(G4, h()), n(AS4, q()), n(B3, s())];
+        for axis in [0, 30, 60, 61, 72, 127] {
+            assert_eq!(tree.clone().invert(axis).invert(axis), tree, "axis {axis}");
+        }
+    }
+
+    #[test]
+    fn invert_reflects_below_midi_zero_into_the_right_octave() {
+        let inverted = n(CS4, q()).invert(30);
+        match inverted {
+            Music::Note(note) => match note.pitch {
+                Pitch::Chromatic(cp) => {
+                    assert_eq!(cp.midi(), -1);
+                    assert_eq!(cp.octave, -2);
+                }
+                other => panic!("expected chromatic pitch, got {other:?}"),
+            },
+            other => panic!("expected a note, got {other:?}"),
+        }
     }
 }
