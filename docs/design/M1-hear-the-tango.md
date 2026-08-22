@@ -81,9 +81,13 @@ pub struct Resolved {
 
 pub enum ResolveError {
     DegreeZero,
+    DegreeWithoutKey,                 // a Degree with no Control::Key in scope
     CustomModeWithoutScale { mode: Mode },
-    DegreeOutOfScale { number: u8, scale_len: usize },
+    EmptyScale,                       // Control::Scale with no intervals
+    PitchOutOfRange { semitone: i64 },// outside MIDI -1500..=1500, the range whose octave fits an i8
     UnanchoredInterval,               // no previous note and no key to anchor on
+    ZeroInterval,                     // generic == 0
+    InvalidIntervalQuality { generic: i8, quality: IntervalQuality }, // e.g. a major fifth
     TieMismatch { at: Beats },        // tie_to_next followed by a different pitch or a rest
     UnspellablePitch { semitone: i32, letter: Letter },
 }
@@ -100,21 +104,22 @@ Carried down the tree, cloned at each `Modify` and each `Par` child:
 ```rust
 struct Context {
     key: Option<Key>,
-    scale: Option<Scale>,             // Control::Scale override, else derived from key.mode
-    transpose: i32,                   // chromatic semitones, summed across nested Modify
-    diatonic: i32,                    // scale steps, summed
+    scale: Option<Scale>,             // Control::Scale override, else derived from key.mode; a new Key clears it
+    transpose: i64,                   // chromatic semitones, summed across nested Modify (saturating)
+    diatonic: i64,                    // scale steps, summed (saturating)
     dynamics: Dynamics,               // default Mf
     articulation: Option<Articulation>,
     voice: Option<VoiceId>,
     instrument: Option<InstrumentId>,
     hints: Vec<BackendHint>,
-    tempo: Option<Tempo>,
-    time_sig: Option<TimeSig>,
-    prev: Option<ChromaticPitch>,     // previous resolved note in this Seq branch
 }
 ```
 
-`prev` is the one field with branch semantics: a `Seq` threads it through its children; a `Par` gives every child the same `prev` it received and does not thread between them; `Modify` passes it through. This is what makes `Interval` well-defined (ADR-005).
+Tempo and time signature are not context: a `Control::Tempo` or `Control::TimeSignature` appends `(onset, value)` to the `Resolved` maps as it is met. The previous note, `prev`, is not a context field either; the walk threads it as an argument, as the *untransposed* resolved pitch, and transposition is applied exactly once to every pitch at emit time (so `seq![n(C4, q()), n(+M3).transpose(7)]` gives C4 B4).
+
+(Sketch synced 2026-08-22 to what shipped in PR #28; `DegreeOutOfScale` from the first draft is unreachable because extensions wrap, and was dropped.)
+
+`prev` has branch semantics: a `Seq` threads it through its children; a `Par` gives every child the same `prev` it received and does not thread between them; `Modify` passes it through. This is what makes `Interval` well-defined (ADR-005).
 
 ## Resolution rules
 
