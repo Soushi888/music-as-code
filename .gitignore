@@ -4,3 +4,4 @@
 
 /Plans
 .local/
+*.proptest-regressions
