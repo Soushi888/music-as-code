@@ -43,6 +43,32 @@ pub enum Mode {
     Custom(u32),
 }
 
+impl Mode {
+    /// Semitones above the tonic for each degree of this mode, or `None` for
+    /// [`Mode::Custom`], which has no interval content of its own.
+    ///
+    /// # Examples
+    /// ```
+    /// use musecode_core::prelude::*;
+    /// assert_eq!(Mode::Minor.intervals(), Some(&[0, 2, 3, 5, 7, 8, 10][..]));
+    /// assert_eq!(Mode::Custom(7).intervals(), None);
+    /// ```
+    pub fn intervals(self) -> Option<&'static [i8]> {
+        Some(match self {
+            Mode::Major => &[0, 2, 4, 5, 7, 9, 11],
+            Mode::Minor => &[0, 2, 3, 5, 7, 8, 10],
+            Mode::Dorian => &[0, 2, 3, 5, 7, 9, 10],
+            Mode::Phrygian => &[0, 1, 3, 5, 7, 8, 10],
+            Mode::Lydian => &[0, 2, 4, 6, 7, 9, 11],
+            Mode::Mixolydian => &[0, 2, 4, 5, 7, 9, 10],
+            Mode::Locrian => &[0, 1, 3, 5, 6, 8, 10],
+            Mode::HarmonicMinor => &[0, 2, 3, 5, 7, 8, 11],
+            Mode::MelodicMinor => &[0, 2, 3, 5, 7, 9, 11],
+            Mode::Custom(_) => return None,
+        })
+    }
+}
+
 /// A tonal centre: tonic pitch class plus mode.
 ///
 /// Used in [`Control::Key`][crate::control::Control::Key] to establish the
@@ -112,6 +138,33 @@ impl Scale {
     /// Construct a scale from an arbitrary interval vector. `name` will be `None`.
     pub fn custom(intervals: Vec<i8>) -> Self {
         Self { intervals, name: None }
+    }
+
+    /// The scale a [`Mode`] denotes, or `None` for [`Mode::Custom`].
+    pub fn from_mode(mode: Mode) -> Option<Self> {
+        mode.intervals().map(|iv| Self { intervals: iv.to_vec(), name: Some(format!("{mode:?}").to_lowercase()) })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_named_mode_is_heptatonic_and_starts_on_the_tonic() {
+        let modes = [
+            Mode::Major, Mode::Minor, Mode::Dorian, Mode::Phrygian, Mode::Lydian,
+            Mode::Mixolydian, Mode::Locrian, Mode::HarmonicMinor, Mode::MelodicMinor,
+        ];
+        for mode in modes {
+            let iv = mode.intervals().unwrap();
+            assert_eq!(iv.len(), 7, "{mode:?}");
+            assert_eq!(iv[0], 0, "{mode:?}");
+            assert!(iv.windows(2).all(|w| w[0] < w[1]), "{mode:?} is not ascending");
+            assert!(iv[6] < 12, "{mode:?}");
+        }
+        assert_eq!(Scale::from_mode(Mode::Major), Some(Scale::major()).map(|s| Scale { name: Some("major".into()), ..s }));
+        assert_eq!(Scale::from_mode(Mode::Custom(3)), None);
     }
 }
 
