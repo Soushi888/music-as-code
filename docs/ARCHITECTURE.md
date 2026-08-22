@@ -21,6 +21,8 @@ graph TD
     control --> pitch & time & attrs & theory & hints
     music --> pitch & time & attrs & control
     combinators --> music & control & time
+    display --> music & time
+    analysis --> resolve & pitch & time
     resolve --> music & control & theory & pitch & time & attrs & hints
     phrase --> music & attrs
 ```
@@ -37,7 +39,9 @@ graph TD
 | `control` | `pitch`, `time`, `attrs`, `theory`, `backends/hints` |
 | `music` | `pitch`, `time`, `attrs`, `control` |
 | `combinators` | `music`, `control`, `time` |
+| `display` | `music`, `time` (plus `Display` impls that live in each type's own module) |
 | `resolve` | `music`, `control`, `theory`, `pitch`, `time`, `attrs`, `backends/hints` |
+| `analysis` | `resolve`, `pitch`, `time` (and `music` for the `summary` argument) |
 | `phrase` | `music`, `attrs` |
 | `prelude` | everything |
 
@@ -90,6 +94,10 @@ graph TD
 ### Layer 5: Resolver (`resolve`)
 
 The semantic pass. `resolve(&Music) -> Result<Resolved, ResolveError>` walks the tree with an accumulated context (key, scale override, chromatic and diatonic transposition, dynamics, articulation, voice, instrument, hints) and emits a flat, onset-sorted list of `Event`s with fully resolved `ChromaticPitch`es, velocities and sounding durations, plus a tempo map and time-signature map. Degrees anchor on the tonic in octave 4 and are spelled from the scale step; intervals anchor on the previous note in the same `Seq` branch; ties merge within a branch. Every reachable mistake is a `ResolveError`, never a panic. The rules are listed in the module docs and in `docs/API.md`.
+
+### Layer 5: Analysis (`analysis`)
+
+Structural facts over the resolver's events: `pitch_range`, `pitch_class_set` (a 12-bit set plus the spelled classes), `interval_histogram` (melodic steps per voice), `vertical_slices` (what sounds at each onset) and `label_triad` (major, minor, diminished, augmented, sus2, sus4 in any inversion). `summary(&Music)` resolves a tree and prints all of it in one string. Every function takes `&[Event]` so it composes with anything a backend produces or consumes.
 
 ### Layer 5: Combinators (`combinators`)
 
@@ -158,4 +166,5 @@ To prevent a circular dependency. Both `music` and `control` need `Articulation`
 - `control` must never import `music`
 - `combinators` may import `music` and `control` but not `phrase`
 - `resolve` must never import `phrase`, `combinators`, or a concrete backend
+- `analysis` works on `&[Event]` and must never import a backend
 - `phrase` must never import `combinators` or `theory`
