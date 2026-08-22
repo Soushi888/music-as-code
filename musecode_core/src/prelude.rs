@@ -1,3 +1,7 @@
+pub use crate::analysis::{
+    interval_histogram, label_triad, pitch_class_set, pitch_range, summary, vertical_slices, PitchClassSet, Triad,
+    TriadQuality,
+};
 pub use crate::attrs::{Articulation, BackendId, InstrumentId, NoteAttrs, VoiceId};
 pub use crate::backends::hints::{AudioHint, BackendHint, LilypondHint, MicPos, MidiHint};
 pub use crate::control::Control;
@@ -10,5 +14,5 @@ pub use crate::pitch::{
     F4, F5, FS4, G3, G4, G5, GB4, GS4,
 };
 pub use crate::theory::{Chord, ChordQuality, Extension, Key, Mode, PitchRange, Scale, Voicing};
-pub use crate::time::{b, dot, e, h, q, s, triplet, ts, w, Beats, Dynamics, Tempo, TimeSig};
+pub use crate::time::{b, dot, duration_name, e, h, q, s, triplet, ts, w, Beats, Dynamics, Tempo, TimeSig};
 pub use crate::{d, par, pc, seq};
