@@ -89,7 +89,7 @@ pub enum Articulation {
 /// ```
 #[derive(Clone, PartialEq, Eq, Hash, Default, Debug, Serialize, Deserialize)]
 pub struct NoteAttrs {
-    /// MIDI velocity, `0..=127`. `None` means use the context default (typically 64).
+    /// MIDI velocity, `1..=127`. `None` means the level of the `Control::Dynamics` in scope (mf = 80 by default).
     pub velocity: Option<u8>,
     /// Performance articulation applied to this note.
     pub articulation: Option<Articulation>,

@@ -41,15 +41,19 @@
 //!   articulation: staccato 1/2, staccatissimo 1/4, everything else 1.
 //! - **Ties.** `tie_to_next` merges a note with the next note in the same
 //!   `Seq` branch when it resolves to the same pitch, summing both durations
-//!   into one event. A following rest or a different pitch is an error. A tie
-//!   on the last note of a branch, or into a nested `Seq`/`Par`/`Modify`, is
-//!   dropped silently; ties across boundaries are a later milestone.
+//!   into one event. A following rest or a different pitch is an error. A
+//!   `Modify` wrapper around the next note is transparent to the tie. A tie
+//!   on the last note of a branch, or into a nested `Seq`/`Par`, is dropped
+//!   silently; ties across boundaries are a later milestone.
 //! - **Tempo and time signature** are recorded in [`Resolved::tempo_map`] and
 //!   [`Resolved::time_sigs`] at the onset where the `Control` is met. A
-//!   `Tempo::Ramp` contributes its starting BPM only.
+//!   `Tempo::Ramp` is recorded as is; the MIDI backend reads its `from_bpm`.
 //!
 //! Errors, never panics: every condition a composer can reach from user code
-//! is a [`ResolveError`] variant.
+//! is a [`ResolveError`] variant, including pitches pushed beyond the
+//! representable octave range by extreme transpositions. The one exception
+//! is inherited from [`Music::duration`]: `Rational32` overflows on pieces
+//! millions of beats long, which M1 accepts as a known limit.
 
 use crate::attrs::{Articulation, InstrumentId, VoiceId};
 use crate::backends::BackendHint;
@@ -108,6 +112,14 @@ pub enum ResolveError {
         /// The custom mode that had no scale.
         mode: Mode,
     },
+    /// A `Degree` under a `Control::Scale` whose `intervals` is empty.
+    EmptyScale,
+    /// A pitch fell outside the octave range a [`ChromaticPitch`] can hold,
+    /// usually through an extreme `Control::Transpose` or `octave_shift`.
+    PitchOutOfRange {
+        /// The MIDI number that could not be represented.
+        semitone: i64,
+    },
     /// An `Interval` with no previous note in its branch and no key to anchor on.
     UnanchoredInterval,
     /// An `Interval` with `generic == 0`; a unison is `1`.
@@ -140,6 +152,10 @@ impl std::fmt::Display for ResolveError {
             ResolveError::DegreeWithoutKey => write!(f, "a scale degree was used with no key in scope"),
             ResolveError::CustomModeWithoutScale { mode } => {
                 write!(f, "{mode:?} has no interval content; wrap the passage in Control::Scale")
+            }
+            ResolveError::EmptyScale => write!(f, "a Control::Scale with no intervals cannot resolve a degree"),
+            ResolveError::PitchOutOfRange { semitone } => {
+                write!(f, "MIDI {semitone} is outside the range a ChromaticPitch can represent")
             }
             ResolveError::UnanchoredInterval => {
                 write!(f, "an interval was used with no previous note and no key to anchor on")
@@ -233,22 +249,28 @@ fn walk(
             }
             Ok(prev)
         }
-        Music::Modify(control, body) => match control {
-            Control::Tempo(t) => {
-                out.tempo_map.push((onset, t.clone()));
-                walk(body, onset, ctx, prev, out)
-            }
-            Control::TimeSignature(ts) => {
-                out.time_sigs.push((onset, *ts));
-                walk(body, onset, ctx, prev, out)
-            }
-            Control::User(_, _) => walk(body, onset, ctx, prev, out),
-            other => {
-                let inner = ctx.apply(other);
-                walk(body, onset, &inner, prev, out)
-            }
-        },
+        Music::Modify(_, _) => {
+            let (inner, leaf) = unwrap_modify(music, onset, ctx, out);
+            walk(leaf, onset, &inner, prev, out)
+        }
     }
+}
+
+/// Peel a chain of `Modify` wrappers: record tempo and time-signature
+/// changes at `onset`, fold every other control into the context, and return
+/// the context and the innermost node.
+fn unwrap_modify<'m>(mut music: &'m Music, onset: Beats, ctx: &Context, out: &mut Resolved) -> (Context, &'m Music) {
+    let mut inner = ctx.clone();
+    while let Music::Modify(control, body) = music {
+        match control {
+            Control::Tempo(t) => out.tempo_map.push((onset, t.clone())),
+            Control::TimeSignature(ts) => out.time_sigs.push((onset, *ts)),
+            Control::User(_, _) => {}
+            other => inner = inner.apply(other),
+        }
+        music = body;
+    }
+    (inner, music)
 }
 
 /// A `Seq` threads `prev` through its children and owns tie merging.
@@ -263,9 +285,14 @@ fn walk_seq(
     // Index into `out.events` of an event whose note was tied to the next one.
     let mut tie_from: Option<usize> = None;
     for child in children {
-        match child {
+        // A Modify wrapper is transparent to ties and to `prev`: look through it.
+        let (inner, leaf) = match child {
+            Music::Modify(_, _) => unwrap_modify(child, t, ctx, out),
+            other => (ctx.clone(), other),
+        };
+        match leaf {
             Music::Note(note) => {
-                let (pitch, idx) = emit(note, t, ctx, prev, tie_from, out)?;
+                let (pitch, idx) = emit(note, t, &inner, prev, tie_from, out)?;
                 prev = Some(pitch);
                 tie_from = note.attrs.tie_to_next.then_some(idx);
             }
@@ -276,7 +303,7 @@ fn walk_seq(
             }
             other => {
                 tie_from = None;
-                prev = walk(other, t, ctx, prev, out)?;
+                prev = walk(other, t, &inner, prev, out)?;
             }
         }
         t += child.duration();
@@ -285,7 +312,8 @@ fn walk_seq(
 }
 
 /// Resolve one note into an event, merging it into `tie_from` when tied.
-/// Returns the resolved pitch and the index of the event that now carries it.
+/// Returns the resolved pitch *before* chromatic transposition (what the
+/// next interval anchors on) and the index of the event that carries it.
 fn emit(
     note: &Note,
     onset: Beats,
@@ -294,7 +322,8 @@ fn emit(
     tie_from: Option<usize>,
     out: &mut Resolved,
 ) -> Result<(ChromaticPitch, usize), ResolveError> {
-    let pitch = resolve_pitch(&note.pitch, ctx, prev)?;
+    let base = resolve_pitch(&note.pitch, ctx, prev)?;
+    let pitch = transposed(base, ctx.transpose)?;
     let articulation = note.attrs.articulation.or(ctx.articulation);
     let sounding = note.dur * articulation_scale(articulation);
 
@@ -305,7 +334,7 @@ fn emit(
         }
         tied.dur += sounding;
         tied.written_dur += note.dur;
-        return Ok((pitch, idx));
+        return Ok((base, idx));
     }
 
     let velocity = note.attrs.velocity.unwrap_or_else(|| velocity_for(ctx.dynamics)).clamp(1, 127);
@@ -322,7 +351,7 @@ fn emit(
         articulation,
         hints,
     });
-    Ok((pitch, out.events.len() - 1))
+    Ok((base, out.events.len() - 1))
 }
 
 impl Context {
@@ -336,8 +365,8 @@ impl Context {
             }
             Control::Scale(s) => next.scale = Some(s.clone()),
             Control::Instrument(i) => next.instrument = Some(i.clone()),
-            Control::Transpose(n) => next.transpose += n,
-            Control::DiatonicTranspose(n) => next.diatonic += n,
+            Control::Transpose(n) => next.transpose = next.transpose.saturating_add(*n),
+            Control::DiatonicTranspose(n) => next.diatonic = next.diatonic.saturating_add(*n),
             Control::Dynamics(d) => match d {
                 Dynamics::Crescendo | Dynamics::Decrescendo => {}
                 level => next.dynamics = *level,
@@ -354,6 +383,9 @@ impl Context {
     fn scale_intervals(&self) -> Result<(Key, Vec<i8>), ResolveError> {
         let key = self.key.ok_or(ResolveError::DegreeWithoutKey)?;
         if let Some(scale) = &self.scale {
+            if scale.intervals.is_empty() {
+                return Err(ResolveError::EmptyScale);
+            }
             return Ok((key, scale.intervals.clone()));
         }
         match key.mode.intervals() {
@@ -362,20 +394,21 @@ impl Context {
         }
     }
 
-    /// The tonic in octave 4, transposed by the chromatic transposition in scope.
+    /// The tonic in octave 4, before any chromatic transposition.
     fn tonic_anchor(&self) -> Option<ChromaticPitch> {
-        let key = self.key?;
-        let tonic = ChromaticPitch { class: key.tonic, octave: 4 };
-        Some(transposed(tonic, self.transpose))
+        self.key.map(|key| ChromaticPitch { class: key.tonic, octave: 4 })
     }
 }
 
+/// Resolve a pitch to its chromatic form *before* `Control::Transpose`,
+/// which [`emit`] applies uniformly afterwards. `prev` and the tonic anchor
+/// are likewise untransposed, so an interval inside its own `transpose`
+/// subtree is transposed exactly once.
 fn resolve_pitch(pitch: &Pitch, ctx: &Context, prev: Prev) -> Result<ChromaticPitch, ResolveError> {
     match pitch {
-        Pitch::Chromatic(cp) => Ok(transposed(*cp, ctx.transpose)),
-        Pitch::Degree(d) => resolve_degree(d, ctx).map(|p| transposed(p, ctx.transpose)),
+        Pitch::Chromatic(cp) => Ok(*cp),
+        Pitch::Degree(d) => resolve_degree(d, ctx),
         Pitch::Interval(iv) => {
-            // `prev` is already transposed; the tonic anchor is transposed by `tonic_anchor`.
             let anchor = prev.or_else(|| ctx.tonic_anchor()).ok_or(ResolveError::UnanchoredInterval)?;
             resolve_interval(iv, anchor)
         }
@@ -387,22 +420,38 @@ fn resolve_degree(degree: &Degree, ctx: &Context) -> Result<ChromaticPitch, Reso
         return Err(ResolveError::DegreeZero);
     }
     let (key, intervals) = ctx.scale_intervals()?;
-    let len = intervals.len() as i32;
-    let steps = degree.number as i32 - 1 + ctx.diatonic;
+    let len = intervals.len() as i64;
+    let steps = degree.number as i64 - 1 + ctx.diatonic as i64;
     let idx = steps.rem_euclid(len);
     let wrap = steps.div_euclid(len);
-    let tonic_midi = ChromaticPitch { class: key.tonic, octave: 4 }.midi();
+    let tonic_midi = ChromaticPitch { class: key.tonic, octave: 4 }.midi() as i64;
     let midi = tonic_midi
-        + intervals[idx as usize] as i32
-        + degree.alter as i32
-        + 12 * (wrap + degree.octave_shift as i32);
+        + intervals[idx as usize] as i64
+        + degree.alter as i64
+        + 12 * (wrap + degree.octave_shift as i64);
     if len == 7 {
-        let letter = key.tonic.letter.step(idx);
-        ChromaticPitch::with_letter(midi, letter)
-            .ok_or(ResolveError::UnspellablePitch { semitone: midi, letter })
+        spell(midi, key.tonic.letter.step(idx as i32))
     } else {
-        Ok(ChromaticPitch::from_midi(midi))
+        from_midi_checked(midi)
     }
+}
+
+/// The MIDI numbers whose octave fits in an `i8` for every spelling.
+const MIDI_RANGE: std::ops::RangeInclusive<i64> = -1500..=1500;
+
+fn from_midi_checked(midi: i64) -> Result<ChromaticPitch, ResolveError> {
+    if !MIDI_RANGE.contains(&midi) {
+        return Err(ResolveError::PitchOutOfRange { semitone: midi });
+    }
+    Ok(ChromaticPitch::from_midi(midi as i32))
+}
+
+fn spell(midi: i64, letter: Letter) -> Result<ChromaticPitch, ResolveError> {
+    if !MIDI_RANGE.contains(&midi) {
+        return Err(ResolveError::PitchOutOfRange { semitone: midi });
+    }
+    ChromaticPitch::with_letter(midi as i32, letter)
+        .ok_or(ResolveError::UnspellablePitch { semitone: midi as i32, letter })
 }
 
 fn resolve_interval(iv: &Interval, anchor: ChromaticPitch) -> Result<ChromaticPitch, ResolveError> {
@@ -432,19 +481,23 @@ fn resolve_interval(iv: &Interval, anchor: ChromaticPitch) -> Result<ChromaticPi
     };
     let semitones = base + adjust + 12 * octaves;
     let sign = iv.generic.signum() as i32;
-    let midi = anchor.midi() + sign * semitones;
-    let letter = anchor.class.letter.step(sign * (size - 1));
-    ChromaticPitch::with_letter(midi, letter).ok_or(ResolveError::UnspellablePitch { semitone: midi, letter })
+    let midi = anchor.midi() as i64 + (sign * semitones) as i64;
+    spell(midi, anchor.class.letter.step(sign * (size - 1)))
 }
 
-/// Apply a chromatic transposition. Multiples of twelve keep the spelling.
-fn transposed(p: ChromaticPitch, semitones: i32) -> ChromaticPitch {
+/// Apply a chromatic transposition. Multiples of twelve keep the spelling;
+/// anything else respells with sharps (ADR-008).
+fn transposed(p: ChromaticPitch, semitones: i32) -> Result<ChromaticPitch, ResolveError> {
     if semitones == 0 {
-        p
-    } else if semitones % 12 == 0 {
-        ChromaticPitch { class: p.class, octave: p.octave + (semitones / 12) as i8 }
+        return Ok(p);
+    }
+    let midi = p.midi() as i64 + semitones as i64;
+    if semitones % 12 == 0 {
+        let octave = p.octave as i64 + (semitones / 12) as i64;
+        let octave = i8::try_from(octave).map_err(|_| ResolveError::PitchOutOfRange { semitone: midi })?;
+        Ok(ChromaticPitch { class: p.class, octave })
     } else {
-        ChromaticPitch::from_midi(p.midi() + semitones)
+        from_midi_checked(midi)
     }
 }
 
@@ -641,6 +694,19 @@ mod tests {
     }
 
     #[test]
+    fn transpose_applies_once_to_intervals_whatever_the_modify_wraps() {
+        // The interval note alone is transposed: E4 + 7 = B4.
+        let inner = seq![n(C4, q()), n(iv(3, IntervalQuality::Major), q()).transpose(7)];
+        assert_eq!(pitches(&inner), vec![C4, B4]);
+        // The anchor alone is transposed: the following interval is outside the subtree, so E4.
+        let anchor_only = seq![n(C4, q()).transpose(7), n(iv(3, IntervalQuality::Major), q())];
+        assert_eq!(pitches(&anchor_only), vec![G4, E4]);
+        // Both inside one subtree: each transposed once.
+        let both = seq![n(C4, q()), n(iv(3, IntervalQuality::Major), q())].transpose(7);
+        assert_eq!(pitches(&both), vec![G4, B4]);
+    }
+
+    #[test]
     fn first_interval_anchors_on_the_tonic_when_a_key_is_in_scope() {
         let m = in_f_minor(n(iv(5, IntervalQuality::Perfect), q()));
         assert_eq!(pitches(&m), vec![C5]);
@@ -715,6 +781,24 @@ mod tests {
         let r = resolve(&m).unwrap();
         assert_eq!(r.events.len(), 1);
         assert_eq!(r.events[0].dur, dot(h()));
+    }
+
+    #[test]
+    fn a_modify_wrapper_is_transparent_to_ties() {
+        let tied = Music::Note(Note { pitch: C4.into(), dur: q(), attrs: NoteAttrs { tie_to_next: true, ..Default::default() } });
+        let m = seq![tied.clone(), n(C4, q()).modify(Control::Dynamics(Dynamics::F))];
+        let r = resolve(&m).unwrap();
+        assert_eq!(r.events.len(), 1);
+        assert_eq!(r.events[0].dur, h());
+        let mismatch = seq![tied, n(D4, q()).modify(Control::Articulation(Articulation::Tenuto))];
+        assert_eq!(resolve(&mismatch), Err(ResolveError::TieMismatch { at: q() }));
+    }
+
+    #[test]
+    fn tempo_ramp_is_recorded_whole() {
+        let ramp = Tempo::Ramp { from_bpm: 60, to_bpm: 120, over_beats: 4 };
+        let r = resolve(&n(C4, q()).modify(Control::Tempo(ramp.clone()))).unwrap();
+        assert_eq!(r.tempo_map, vec![(b(0, 1), ramp)]);
     }
 
     #[test]
@@ -800,6 +884,28 @@ mod tests {
     fn error_custom_mode_without_scale() {
         let m = n(d!(1), q()).modify(Control::Key(Key::new(pc!(C), Mode::Custom(4))));
         assert_eq!(resolve(&m), Err(ResolveError::CustomModeWithoutScale { mode: Mode::Custom(4) }));
+    }
+
+    #[test]
+    fn error_empty_scale() {
+        let m = n(d!(1), q()).modify(Control::Scale(Scale::custom(vec![]))).modify(Control::Key(Key::major(pc!(C))));
+        assert_eq!(resolve(&m), Err(ResolveError::EmptyScale));
+    }
+
+    #[test]
+    fn error_pitch_out_of_range_instead_of_overflow() {
+        assert!(matches!(resolve(&n(C4, q()).transpose(1500)), Err(ResolveError::PitchOutOfRange { .. })));
+        assert!(matches!(resolve(&n(C4, q()).transpose(1501)), Err(ResolveError::PitchOutOfRange { .. })));
+        assert!(matches!(resolve(&n(C4, q()).transpose(i32::MAX)), Err(ResolveError::PitchOutOfRange { .. })));
+        assert!(matches!(resolve(&n(C4, q()).transpose(i32::MAX).transpose(1)), Err(ResolveError::PitchOutOfRange { .. })));
+        let high = Degree { number: 1, alter: 0, octave_shift: 127 };
+        let m = n(high, q()).modify(Control::Key(Key::major(pc!(C))));
+        assert!(matches!(resolve(&m), Err(ResolveError::PitchOutOfRange { .. })));
+        // The most extreme interval size is still representable: an 18-octave major second down.
+        let far = seq![n(C4, q()), n(iv(i8::MIN, IntervalQuality::Major), q())];
+        assert_eq!(midis(&far), vec![60, -158]);
+        // Large but representable transpositions still work.
+        assert_eq!(midis(&n(C4, q()).transpose(120)), vec![180]);
     }
 
     #[test]

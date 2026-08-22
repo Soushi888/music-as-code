@@ -134,7 +134,9 @@ impl Music {
     /// Pitch-invert all chromatic pitches around an axis given as a MIDI note number.
     ///
     /// A note at distance `d` semitones above `axis_midi` is reflected to `d` semitones
-    /// below. Enharmonic spelling uses sharps for the reflected pitches.
+    /// below. Enharmonic spelling uses sharps for the reflected pitches, so
+    /// `invert` is an involution on MIDI numbers for any tree and on the tree
+    /// itself only when every pitch is already spelled with sharps or naturals.
     ///
     /// Only [`Pitch::Chromatic`][crate::pitch::Pitch::Chromatic] notes are affected;
     /// [`Pitch::Degree`][crate::pitch::Pitch::Degree] and

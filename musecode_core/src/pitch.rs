@@ -193,7 +193,8 @@ impl ChromaticPitch {
     /// and octave that make it sound right.
     ///
     /// Returns `None` when no accidental in `DoubleFlat..=DoubleSharp` reaches
-    /// the target from that letter (MIDI 63 cannot be spelled with `C`).
+    /// the target from that letter (MIDI 63 cannot be spelled with `C`), or
+    /// when the octave does not fit in an `i8`.
     /// The octave follows the letter, not the sounding pitch: MIDI 71 spelled
     /// with `C` is Cb5, not Cb4.
     ///
@@ -210,15 +211,17 @@ impl ChromaticPitch {
         // octave of that letter is chosen.
         let offset = (midi - natural + 6).rem_euclid(12) - 6;
         let accidental = Accidental::from_offset(offset)?;
-        let octave = (midi - natural - offset) / 12 - 1;
-        Some(Self { class: PitchClass { letter, accidental }, octave: octave as i8 })
+        let octave = i8::try_from((midi - natural - offset) / 12 - 1).ok()?;
+        Some(Self { class: PitchClass { letter, accidental }, octave })
     }
 
     /// Construct a pitch from a MIDI note number, spelled with sharps.
     ///
     /// The inverse of [`midi`][Self::midi]: `from_midi(m).midi() == m` for every
-    /// `m`, including values outside `0..=127` (negative numbers land in
-    /// octave -2 and below). Black keys are spelled with sharps, so MIDI 61 is
+    /// `m` whose octave fits in an `i8`, which is `-1524..=1547`; values outside
+    /// `0..=127` are allowed (negative numbers land in octave -2 and below).
+    /// Beyond that range the octave wraps; the resolver guards it with
+    /// `ResolveError::PitchOutOfRange` before calling here. Black keys are spelled with sharps, so MIDI 61 is
     /// C#4, never Db4; callers that need a key-aware spelling resolve through
     /// the scale instead.
     ///
