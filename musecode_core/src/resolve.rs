@@ -497,9 +497,9 @@ mod tests {
         Interval { generic, quality }
     }
 
-    /// The README melody: degrees 5 b5 4 b3 in F minor.
+    /// The README melody: degrees 5 b5 4 3 in F minor.
     fn readme_melody() -> Music {
-        seq![n(d!(5), q()), n(d!(b 5), e()), n(d!(4), e()), n(d!(b 3), h())]
+        seq![n(d!(5), q()), n(d!(b 5), e()), n(d!(4), e()), n(d!(3), h())]
     }
 
     fn in_f_minor(m: Music) -> Music {
@@ -516,23 +516,18 @@ mod tests {
 
     #[test]
     fn readme_melody_in_f_minor_is_spelled_from_the_scale() {
-        // 5 = C5; b5 = Cb5 (MIDI 71, not B4); 4 = Bb4; b3 = the minor-scale
-        // third lowered once more, Abb4 (MIDI 67), because `alter` inflects
-        // the active scale step.
+        // 5 = C5; b5 = Cb5 (MIDI 71, not B4); 4 = Bb4; 3 = Ab4, the third of the
+        // minor scale as it stands.
         let got = pitches(&in_f_minor(readme_melody()));
-        assert_eq!(got, vec![
-            C5,
-            cp(Letter::C, Accidental::Flat, 5),
-            BB4,
-            cp(Letter::A, Accidental::DoubleFlat, 4),
-        ]);
-        assert_eq!(midis(&in_f_minor(readme_melody())), vec![72, 71, 70, 67]);
+        assert_eq!(got, vec![C5, cp(Letter::C, Accidental::Flat, 5), BB4, AB4]);
+        assert_eq!(midis(&in_f_minor(readme_melody())), vec![72, 71, 70, 68]);
     }
 
     #[test]
-    fn unaltered_third_of_f_minor_is_a_flat() {
-        let m = in_f_minor(seq![n(d!(5), q()), n(d!(b 5), e()), n(d!(4), e()), n(d!(3), h())]);
-        assert_eq!(pitches(&m), vec![C5, cp(Letter::C, Accidental::Flat, 5), BB4, AB4]);
+    fn alter_inflects_the_scale_step_so_b3_in_minor_is_a_double_flat() {
+        let m = in_f_minor(n(d!(b 3), h()));
+        assert_eq!(pitches(&m), vec![cp(Letter::A, Accidental::DoubleFlat, 4)]);
+        assert_eq!(midis(&m), vec![67]);
     }
 
     #[test]
@@ -589,7 +584,7 @@ mod tests {
     #[test]
     fn chromatic_transpose_moves_resolved_output() {
         let m = in_f_minor(readme_melody()).transpose(7);
-        assert_eq!(midis(&m), vec![79, 78, 77, 74]);
+        assert_eq!(midis(&m), vec![79, 78, 77, 75]);
         // Sharps-only respelling (ADR-008).
         assert_eq!(pitches(&m)[1], cp(Letter::F, Accidental::Sharp, 5));
     }
@@ -609,9 +604,9 @@ mod tests {
     #[test]
     fn diatonic_transpose_moves_every_degree_one_step_in_f_minor() {
         let shifted = in_f_minor(readme_melody().diatonic_transpose(-1));
-        let explicit = in_f_minor(seq![n(d!(4), q()), n(d!(b 4), e()), n(d!(3), e()), n(d!(b 2), h())]);
+        let explicit = in_f_minor(seq![n(d!(4), q()), n(d!(b 4), e()), n(d!(3), e()), n(d!(2), h())]);
         assert_eq!(resolve(&shifted).unwrap(), resolve(&explicit).unwrap());
-        assert_eq!(midis(&shifted), vec![70, 69, 68, 66]);
+        assert_eq!(midis(&shifted), vec![70, 69, 68, 67]);
     }
 
     #[test]
