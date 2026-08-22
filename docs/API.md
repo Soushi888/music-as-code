@@ -13,6 +13,7 @@ Complete public API for `musecode_core`. Import everything via `use musecode_cor
 - [theory — Keys, scales, and chords](#theory)
 - [attrs — Note attributes and ID types](#attrs)
 - [combinators — Pure transformations on Music](#combinators)
+- [resolve — From a tree to resolved events](#resolve)
 - [backends/hints — Backend metadata](#backendshints)
 - [phrase — Content-addressed fragments](#phrase)
 - [Macros](#macros)
@@ -297,6 +298,12 @@ pub enum Mode {
 }
 ```
 
+```rust
+impl Mode {
+    pub fn intervals(self) -> Option<&'static [i8]>   // None for Custom
+}
+```
+
 ### `Key`
 ```rust
 pub struct Key { pub tonic: PitchClass, pub mode: Mode }
@@ -494,6 +501,70 @@ pub fn canon(voices: Vec<(Beats, i32)>) -> impl Fn(Music) -> Music
 // Two-voice canon: second entry enters after one quarter, a fifth above
 let two_voice_canon = canon(vec![(q(), 0), (q(), 7)]);
 melody.pipe(two_voice_canon)
+```
+
+---
+
+## `resolve`
+
+The pass that gives the polymorphic parts of the IR their meaning. Walks a `Music` tree with an accumulated context and emits one `Event` per sounding note. Backends and the analysis layer consume `Resolved`, never `Music` directly.
+
+### Types
+
+```rust
+pub struct Event {
+    pub onset: Beats,                 // absolute, from the start of the piece
+    pub dur: Beats,                   // sounding duration after articulation
+    pub written_dur: Beats,           // the notated value
+    pub pitch: ChromaticPitch,        // resolved, spelling preserved
+    pub velocity: u8,                 // 1..=127
+    pub voice: Option<VoiceId>,
+    pub instrument: Option<InstrumentId>,
+    pub articulation: Option<Articulation>,
+    pub hints: Vec<BackendHint>,      // note hints, then enclosing Control::Hint outermost first
+}
+
+pub struct Resolved {
+    pub events: Vec<Event>,           // sorted by onset, stable
+    pub tempo_map: Vec<(Beats, Tempo)>,
+    pub time_sigs: Vec<(Beats, TimeSig)>,
+    pub total: Beats,                 // == Music::duration()
+}
+
+pub enum ResolveError {
+    DegreeZero,
+    DegreeWithoutKey,
+    CustomModeWithoutScale { mode: Mode },
+    UnanchoredInterval,
+    ZeroInterval,
+    InvalidIntervalQuality { generic: i8, quality: IntervalQuality },
+    TieMismatch { at: Beats },
+    UnspellablePitch { semitone: i32, letter: Letter },
+}
+
+pub fn resolve(music: &Music) -> Result<Resolved, ResolveError>
+```
+
+### Rules
+
+| Input | Resolution |
+|---|---|
+| `Seq` / `Par` / `Modify` | Running-sum onsets / shared onset / no time change |
+| `Degree` | Against the key's scale (or `Control::Scale`); degree 1 is the tonic in octave 4; `alter` inflects the scale step; seven-note scales spell by letter (b5 of F minor is Cb5) |
+| `Interval` | Against the previous note in the same `Seq` branch, else the tonic anchor, else `UnanchoredInterval`; `Par` children all see the `prev` from before the `Par` |
+| `Control::Transpose(n)` | Applied to the resolved pitch; multiples of 12 keep the spelling, others respell with sharps |
+| `Control::DiatonicTranspose(n)` | Moves `Degree` pitches by scale steps with octave borrowing; other pitches unchanged |
+| `Control::Dynamics` | Velocity table: ppp 16, pp 33, p 49, mp 64, mf 80, f 96, ff 112, fff 127, sfz 120, fp 96; hairpins leave the level unchanged; a note's own `velocity` wins |
+| Articulation | Staccato halves, staccatissimo quarters the sounding duration; written duration is untouched |
+| `tie_to_next` | Merges with the next same-pitch note in the branch into one event; a rest or another pitch is `TieMismatch`; a tie at the end of a branch is dropped |
+| `Control::Tempo` / `TimeSignature` | Appended to the maps at the onset where they are met |
+
+```rust
+use musecode_core::prelude::*;
+let triad = seq![n(d!(1), q()), n(d!(3), q()), n(d!(5), h())]
+    .modify(Control::Key(Key::major(pc!(C))));
+let pitches: Vec<_> = resolve(&triad)?.events.iter().map(|e| e.pitch).collect();
+assert_eq!(pitches, vec![C4, E4, G4]);
 ```
 
 ---

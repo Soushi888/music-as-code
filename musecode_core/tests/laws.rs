@@ -106,4 +106,14 @@ proptest! {
     fn invert_is_an_involution(m in arb_music(), axis in 24i32..=108) {
         prop_assert_eq!(m.clone().invert(axis).invert(axis), m);
     }
+
+    #[test]
+    fn transpose_zero_resolves_identically(m in arb_music()) {
+        prop_assert_eq!(resolve(&m.clone().transpose(0)), resolve(&m));
+    }
+
+    #[test]
+    fn resolved_total_equals_duration(m in arb_music()) {
+        prop_assert_eq!(resolve(&m).unwrap().total, m.duration());
+    }
 }
