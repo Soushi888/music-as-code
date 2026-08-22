@@ -135,10 +135,14 @@ impl Music {
 /// Sequential composition: `a + b` plays `b` immediately after `a`.
 ///
 /// Adjacent `Seq` nodes are flattened: `Seq([a, b]) + Seq([c, d])` = `Seq([a, b, c, d])`.
+/// An empty `Seq` is the identity: `Seq([]) + m` and `m + Seq([])` both return `m`
+/// unchanged, whatever constructor `m` is.
 impl Add for Music {
     type Output = Music;
     fn add(self, other: Music) -> Music {
         match (self, other) {
+            (Music::Seq(a), b) if a.is_empty() => b,
+            (a, Music::Seq(b)) if b.is_empty() => a,
             (Music::Seq(mut a), Music::Seq(b)) => { a.extend(b); Music::Seq(a) }
             (Music::Seq(mut a), b)             => { a.push(b);   Music::Seq(a) }
             (a, Music::Seq(mut b))             => { b.insert(0, a); Music::Seq(b) }
@@ -150,10 +154,14 @@ impl Add for Music {
 /// Parallel composition: `a | b` starts both `a` and `b` at the same time.
 ///
 /// Adjacent `Par` nodes are flattened: `Par([a, b]) | Par([c, d])` = `Par([a, b, c, d])`.
+/// An empty `Par` is the identity: `Par([]) | m` and `m | Par([])` both return `m`
+/// unchanged, whatever constructor `m` is.
 impl BitOr for Music {
     type Output = Music;
     fn bitor(self, other: Music) -> Music {
         match (self, other) {
+            (Music::Par(a), b) if a.is_empty() => b,
+            (a, Music::Par(b)) if b.is_empty() => a,
             (Music::Par(mut a), Music::Par(b)) => { a.extend(b); Music::Par(a) }
             (Music::Par(mut a), b)             => { a.push(b);   Music::Par(a) }
             (a, Music::Par(mut b))             => { b.insert(0, a); Music::Par(b) }
