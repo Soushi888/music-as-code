@@ -295,7 +295,7 @@ Slices, each one PR on top of this branch:
 - **Status:** Proposed
 - **Context:** A `Degree` needs an absolute octave to resolve to.
 - **Decision:** Degree 1 with `octave_shift 0` is the tonic pitch class in octave 4 (F4 in F minor, C4 in C major). Higher degrees ascend from there; `octave_shift` moves whole octaves.
-- **Consequences:** A melody in degree space sits in the same register across keys. The README melody resolves to C5 Cb5 Bb4 Ab4.
+- **Consequences:** A melody in degree space sits in the same register across keys. `alter` inflects the step of the active scale (`S[idx] + alter`, the only reading that survives a `Control::Scale` override), so in F minor `b3` is Abb4 and the README melody is written `5 b5 4 3`, resolving to C5 Cb5 Bb4 Ab4. (Settled 2026-08-22 on the slice 3 review, option (a) of PR #28.)
 - **Alternatives:** Nearest tonic to middle C (ambiguous for F#); explicit octave on every degree (verbose, defeats the purpose).
 
 ### ADR-005: Interval anchors to the previous note in the same `Seq` branch
