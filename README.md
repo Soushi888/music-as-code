@@ -188,7 +188,7 @@ These are unresolved choices that affect the API surface before backends are wri
 
 1. **`Modify` with multiple controls?** Currently `Modify(Control, body)` and you nest. Simpler: `Modify(Vec<Control>, body)`. Saves tree depth at a slight loss of canonical form.
 
-2. **`Par` alignment semantics.** Unequal-length children: truncate the shorter, loop it, or pad with silence? Different idioms want different defaults. Probably explicit: `Par::Truncate` / `Par::Loop` / `Par::Pad`.
+2. **`Par` alignment semantics.** *Resolved (M1, ADR-003):* a `Par` lasts as long as its longest child and shorter children are padded with silence, never truncated or looped. `Music::duration()` implements this. Truncate and loop can arrive later as explicit combinators without changing the constructor.
 
 3. **First-class voices.** `Control::Voice(VoiceId)` handles most cases. Is it enough for engraving (where "the violin part" must stay contiguous), or do we need a top-level `Score { voices: Map<VoiceId, InstrumentId> }` type?
 

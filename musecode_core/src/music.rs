@@ -54,6 +54,12 @@ pub enum Music {
     /// Parallel composition: all children start simultaneously.
     ///
     /// Semigroup: `Par([]) | m == m == m | Par([])`.
+    ///
+    /// **Alignment rule.** A `Par` lasts as long as its longest child. Shorter
+    /// children are padded with silence up to that length; they are never
+    /// truncated and never looped. A bass line under a longer melody simply
+    /// stops early. Truncating and looping variants can be added later as
+    /// explicit combinators without touching this constructor.
     Par(Vec<Music>),
     /// Apply a context modifier to a subtree.
     ///
@@ -84,6 +90,42 @@ impl Music {
         match self {
             Music::Seq(v) | Music::Par(v) => v.is_empty(),
             _ => false,
+        }
+    }
+
+    /// Total written duration of this tree in beats.
+    ///
+    /// - `Note` and `Rest` return their own duration.
+    /// - `Seq` returns the sum of its children.
+    /// - `Par` returns the **maximum** of its children: shorter children are
+    ///   padded with silence to the longest (see [`Music::Par`]).
+    /// - `Modify` returns the duration of its body; no control changes time.
+    /// - `Seq([])` and `Par([])` return `0`.
+    ///
+    /// Articulations do not shorten the written duration; a staccato quarter
+    /// is still one beat long here. The sounding length is a resolver concern.
+    ///
+    /// # Examples
+    /// ```
+    /// use musecode_core::prelude::*;
+    /// let melody = seq![n(C4, q()), n(E4, q()), n(G4, h())];   // 1 + 1 + 2
+    /// let bass   = n(C3, w());                                   // 4
+    /// assert_eq!(melody.duration(), w());
+    /// assert_eq!((melody.clone() | bass).duration(), w());       // max(4, 4)
+    /// assert_eq!((melody | n(C3, h())).duration(), w());         // max(4, 2)
+    /// assert_eq!(Music::Seq(vec![]).duration(), b(0, 1));
+    /// ```
+    pub fn duration(&self) -> Beats {
+        match self {
+            Music::Note(note) => note.dur,
+            Music::Rest(dur) => *dur,
+            Music::Seq(children) => children.iter().map(Music::duration).sum(),
+            Music::Par(children) => children
+                .iter()
+                .map(Music::duration)
+                .max()
+                .unwrap_or_else(|| Beats::from_integer(0)),
+            Music::Modify(_, body) => body.duration(),
         }
     }
 }
@@ -189,4 +231,47 @@ macro_rules! seq {
 #[macro_export]
 macro_rules! par {
     [$($m:expr),* $(,)?] => { $crate::music::Music::Par(vec![$($m),*]) };
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::prelude::*;
+
+    #[test]
+    fn leaves_report_their_own_duration() {
+        assert_eq!(n(C4, dot(e())).duration(), b(3, 4));
+        assert_eq!(r(triplet(q())).duration(), b(2, 3));
+    }
+
+    #[test]
+    fn seq_sums_and_par_takes_the_max() {
+        let melody = seq![n(C4, q()), n(E4, e()), n(G4, e())]; // 2 beats
+        let bass = n(C3, w()); // 4 beats
+        assert_eq!(melody.duration(), h());
+        assert_eq!((melody.clone() | bass.clone()).duration(), w());
+        assert_eq!((bass | melody).duration(), w());
+    }
+
+    #[test]
+    fn nested_seq_and_par() {
+        let inner = par![seq![n(C4, q()), n(D4, q())], n(E4, h()), r(e())]; // max(2, 2, 1/2) = 2
+        let outer = seq![inner.clone(), r(q()), par![inner, n(G4, w())]]; // 2 + 1 + max(2, 4)
+        assert_eq!(outer.duration(), b(7, 1));
+    }
+
+    #[test]
+    fn modify_does_not_change_time() {
+        let m = seq![n(d!(1), q()), n(d!(5), h())]
+            .modify(Control::Key(Key::minor(pc!(F))))
+            .transpose(7)
+            .modify(Control::Tempo(Tempo::bpm(200)));
+        assert_eq!(m.duration(), dot(h()));
+    }
+
+    #[test]
+    fn empty_seq_and_par_are_zero() {
+        assert_eq!(Music::Seq(vec![]).duration(), b(0, 1));
+        assert_eq!(Music::Par(vec![]).duration(), b(0, 1));
+        assert_eq!((n(C4, q()) * 0).duration(), b(0, 1));
+    }
 }
