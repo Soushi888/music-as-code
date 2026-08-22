@@ -6,10 +6,12 @@
 //!
 //! Start with [`prelude`] to bring the full API into scope.
 
+pub mod analysis;
 pub mod attrs;
 pub mod backends;
 pub mod combinators;
 pub mod control;
+pub mod display;
 pub mod music;
 pub mod phrase;
 pub mod pitch;
