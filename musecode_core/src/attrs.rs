@@ -29,12 +29,6 @@ pub struct InstrumentId(pub String);
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Default, Serialize, Deserialize)]
 pub struct BackendId(pub String);
 
-/// Identifies a named scale definition stored outside the IR.
-///
-/// Used in `Mode::Custom` to reference a user-defined scale by name.
-#[derive(Clone, PartialEq, Eq, Hash, Debug, Default, Serialize, Deserialize)]
-pub struct ScaleId(pub String);
-
 // === Articulation ===
 
 /// A performance articulation applied to a single note.

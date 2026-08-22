@@ -1,4 +1,4 @@
-pub use crate::attrs::{Articulation, BackendId, InstrumentId, NoteAttrs, ScaleId, VoiceId};
+pub use crate::attrs::{Articulation, BackendId, InstrumentId, NoteAttrs, VoiceId};
 pub use crate::backends::hints::{AudioHint, BackendHint, LilypondHint, MicPos, MidiHint};
 pub use crate::control::Control;
 pub use crate::music::{chord, n, r, Music, Note};
