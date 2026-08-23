@@ -91,6 +91,12 @@ graph TD
 
 `Modify` is how context propagates. Wrapping a subtree in `Modify(Control::Key(k), body)` changes how degree-pitches and diatonic transpositions resolve inside `body` without affecting sibling or parent nodes.
 
+### Layer 3: Notation (`display`)
+
+`impl Display for Music`, and the grammar it prints is specified in `docs/NOTATION.md`. It sits at layer 3 because it needs nothing above `music` and `time`: a note is `pitch:dur` plus its attribute suffix, a rest is `r:dur`, a `Par` of same-duration notes with identical attributes collapses to a chord `[C4 E4 G4]:h`, any other `Par` is `{ piece | piece }`, a `Modify` is `ctrl { piece }`, and a `Seq` inside a `Seq` is parenthesised. A `Seq` of leaves prints on one line and a `Seq` with compound children prints one child per line, which is what makes a piece read one bar per line.
+
+Whitespace carries no meaning, so the printer is free about layout and the parser is free about reading it. That freedom is the point: what this module prints is exactly what the M2 text parser (#14) must accept, so `NOTATION.md` is the contract between the two halves, written before the parser exists.
+
 ### Layer 4: Theory (`theory`, `control`)
 
 `Key`, `Scale`, `Mode`, `Chord`, `ChordQuality`, `Extension`, and `Voicing` live here. These are purely data types with no resolution logic. Resolution (mapping a `Degree` in key F minor to a specific `ChromaticPitch`) belongs in the rendering backend.
