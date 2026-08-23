@@ -151,14 +151,16 @@ fn main() {
         .modify(Control::TimeSignature(TimeSig::common()))
         .modify(Control::Tempo(Tempo::bpm(96)));
 
-    // Same source tree, three outputs (backends not yet implemented):
-    // LilypondBackend::default().render(&piece) -> score PDF
-    // MidiBackend::default().render(&piece)     -> .mid file
-    // FluidsynthBackend::new("FluidR3.sf2").render(&piece) -> .wav
+    // Read it, analyse it, hear it:
+    println!("{piece}");                                    // the notation, one bar per line
+    print!("{}", summary(&piece).unwrap());                 // range, pitch classes, intervals
+    write_midi(&piece, "target/tango.mid", &MidiOptions::default()).unwrap();
 }
 ```
 
 The melody is in scale-degree space: change `pc!(F)` to `pc!(C)` and the `tango` bass notes are the only thing that needs manual updating. The descending line follows automatically.
+
+This is `musecode_core/examples/tango.rs`. Run `just play tango` to render it and hear it through `fluidsynth`, or `just render tango` to write `target/tango.mid` without playing. LilyPond output is milestone M2.
 
 ---
 

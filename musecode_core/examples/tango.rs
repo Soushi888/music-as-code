@@ -3,7 +3,7 @@
 //!
 //! `cargo run --example tango` prints the notation and the structural summary,
 //! then writes `target/tango.mid`. `just play tango` does that and plays the
-//! file through `fluidsynth`.
+//! file through `fluidsynth`; `just listen tango` is an alias.
 
 use musecode_core::prelude::*;
 
@@ -37,5 +37,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("{piece}\n");
     print!("{}", summary(&piece)?);
+
+    let path = "target/tango.mid";
+    write_midi(&piece, path, &MidiOptions::default())?;
+    println!("\nwrote {path}");
     Ok(())
 }
