@@ -15,7 +15,7 @@ cargo doc --no-deps  # build rustdoc without serving
 
 ## Architecture
 
-`musecode_core` is a Rust library — the only crate in this workspace. It is a musical DSL built around a small, orthogonal intermediate representation (IR): five core ADT constructors, polymorphic pitch, rational time, and content-addressed fragments. Backends are not yet implemented; the entire current codebase is the IR and its transformations.
+`musecode_core` is a Rust library — the only crate in this workspace. It is a musical DSL built around a small, orthogonal intermediate representation (IR): five core ADT constructors, polymorphic pitch, rational time, and content-addressed fragments. The MIDI backend is the first renderer; the rest of the codebase is the IR, its transformations, the resolver, display and analysis.
 
 ### Seven-layer dependency graph (each layer may only import from layers below it)
 
@@ -30,6 +30,7 @@ cargo doc --no-deps  # build rustdoc without serving
 | 5 | `resolve` | `resolve()`, `Event`, `Resolved`, `ResolveError` (the one pass that gives `Degree`/`Interval`/`Control` meaning) |
 | 5 | `analysis` | `pitch_range`, `pitch_class_set`, `interval_histogram`, `vertical_slices`, `label_triad`, `summary` over `&[Event]` |
 | 6 | `backends/hints` | `BackendHint`, `LilypondHint`, `MidiHint`, `AudioHint` |
+| 6 | `backends/midi` | `render_midi`, `render_resolved`, `write_midi`, `MidiOptions`, `MidiError`, `program_for` (Standard MIDI File over `midly`) |
 | 7 | `phrase` | `Phrase` (Arc + Blake3 hash), `RenderCache` |
 
 `prelude` re-exports everything and is the intended import for users.
@@ -60,6 +61,7 @@ pub enum Music {
 - `combinators` may import `music` and `control` but not `phrase`
 - `resolve` may import `music`, `control`, `theory`, `pitch`, `time`, `attrs`, `backends/hints`; never `phrase`, `combinators`, or a concrete backend
 - `analysis` takes `&[Event]` from `resolve`; it must never import a backend (`summary(&Music)` is the one convenience that resolves a tree itself)
+- `backends/midi` consumes `Resolved` from `resolve` (plus `music`, `attrs`, `backends/hints`, `time`); it must never import `combinators`, `theory`, `analysis`, or `display`
 - `phrase` must never import `combinators` or `theory`
 
 ### Rational time

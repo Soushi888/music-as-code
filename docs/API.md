@@ -649,6 +649,24 @@ pub enum MicPos { Close, Mid, Far, Mix }
 
 ---
 
+## `backends/midi`
+
+The first concrete backend: a flat map from [`Resolved`](#resolve) events to a Standard MIDI File (format 1, 480 PPQ by default). Re-exported from the prelude.
+
+| Item | Signature | Notes |
+|------|-----------|-------|
+| `MidiOptions` | `{ ppq: u16, default_bpm: u32, default_program: u8 }`, `Default` = 480 / 120 / 0 | `ppq` must be `1..=32767` |
+| `MidiError` | `Resolve`, `Io`, `InvalidPpq`, `ZeroTempo`, `BadTimeSignature`, `PitchOutOfMidiRange`, `TickOverflow` | `Display` + `Error`; `From<ResolveError>`, `From<io::Error>` |
+| `render_midi` | `(&Music, &MidiOptions) -> Result<Vec<u8>, MidiError>` | resolves, then renders |
+| `render_resolved` | `(&Resolved, &MidiOptions) -> Result<Vec<u8>, MidiError>` | when you already hold a `Resolved` |
+| `write_midi` | `(&Music, impl AsRef<Path>, &MidiOptions) -> Result<(), MidiError>` | `render_midi` + `std::fs::write` |
+| `program_for` | `(&InstrumentId) -> Option<u8>` | GM table by name (`"bandoneon"` = 21), bare number, or `gm:` prefix; `None` falls back to `default_program` |
+| `BACKEND_ID`, `backend_id()` | `"midi"` | the `RenderCache` key half |
+
+Layout of the file: track 0 is the conductor (tempo and time-signature meta events; 120 bpm and 4/4 are written at beat 0 when the piece states neither), then one track per voice in order of first appearance, each on the next free channel (9 is skipped). A program change is written whenever the program a note wants (a `MidiHint::ProgramChange`, else its instrument, else `default_program`) differs from what its channel last received. `MidiHint::Channel` reroutes the note it is attached to; `MidiHint::ControlChange` is written just before its note. `Tempo::Ramp` contributes `from_bpm` only in M1.
+
+Caching: `RenderCache::render_with(&phrase, backend_id(), |m| render_midi(m, &opts).unwrap())` renders once per `(hash, backend)`.
+
 ## `phrase`
 
 ### `Phrase`
@@ -666,6 +684,8 @@ A reference-counted, content-hashed musical fragment.
 Two `Phrase`s are equal if and only if their hashes are equal (`PartialEq` delegates to hash comparison).
 
 ### `RenderCache<O>`
+
+Also `render_with(&self, &Phrase, BackendId, impl FnOnce(&Music) -> O)`: returns the cached output for the pair, rendering and storing it on a miss.
 ```rust
 pub struct RenderCache<O> { /* DashMap<(blake3::Hash, BackendId), O> */ }
 ```

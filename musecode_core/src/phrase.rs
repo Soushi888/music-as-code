@@ -96,6 +96,37 @@ impl<O> RenderCache<O> {
     pub fn insert(&self, hash: blake3::Hash, backend: BackendId, output: O) {
         self.map.insert((hash, backend), output);
     }
+
+    /// Return the cached output for `(phrase, backend)`, rendering with `f`
+    /// and storing the result when there is none.
+    ///
+    /// This is how a backend participates in content addressing: the same
+    /// `Music` tree under the same backend is rendered once per cache.
+    ///
+    /// ```
+    /// use musecode_core::prelude::*;
+    /// let cache: RenderCache<Vec<u8>> = RenderCache::new();
+    /// let phrase = Phrase::new(n(C4, q()));
+    /// let backend = BackendId("midi".into());
+    /// let bytes = cache
+    ///     .render_with(&phrase, backend.clone(), |m| render_midi(m, &MidiOptions::default()).unwrap())
+    ///     .clone();
+    /// assert!(cache.get(phrase.hash(), &backend).is_some());
+    /// assert_eq!(&bytes[0..4], b"MThd");
+    /// ```
+    pub fn render_with<F: FnOnce(&Music) -> O>(
+        &self,
+        phrase: &Phrase,
+        backend: BackendId,
+        f: F,
+    ) -> dashmap::mapref::one::Ref<'_, (blake3::Hash, BackendId), O> {
+        let key = (*phrase.hash(), backend);
+        if let Some(hit) = self.map.get(&key) {
+            return hit;
+        }
+        let rendered = f(phrase.music());
+        self.map.entry(key).or_insert(rendered).downgrade()
+    }
 }
 
 impl<O> Default for RenderCache<O> {

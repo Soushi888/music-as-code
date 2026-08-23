@@ -4,6 +4,7 @@ pub use crate::analysis::{
 };
 pub use crate::attrs::{Articulation, BackendId, InstrumentId, NoteAttrs, VoiceId};
 pub use crate::backends::hints::{AudioHint, BackendHint, LilypondHint, MicPos, MidiHint};
+pub use crate::backends::midi::{render_midi, render_resolved, write_midi, MidiError, MidiOptions};
 pub use crate::control::Control;
 pub use crate::music::{chord, n, r, Music, Note};
 pub use crate::phrase::{Phrase, RenderCache};
