@@ -224,6 +224,18 @@ mod tests {
     }
 
     #[test]
+    fn legato_e58_is_the_cinquillo_and_the_habanera_is_not_euclidean() {
+        use crate::rhythm::{cinquillo, habanera};
+        assert_eq!(euclid(5, 8, s()).unwrap().legato(), cinquillo());
+        // The traditional tango bass is x..xx.x. on a sixteenth grid: gaps 3,1,2,2, not maximally even.
+        let hab_bits: Vec<bool> = "x..xx.x.".chars().map(|c| c == 'x').collect();
+        let hab = Pattern::from_grid(&hab_bits, s());
+        assert_eq!(hab.legato(), habanera());
+        assert_ne!(euclid(4, 8, s()).unwrap(), hab);
+        assert_eq!(euclid(4, 8, s()).unwrap().grid(), "x.x.x.x.", "E(4,8) is the plain backbeat");
+    }
+
+    #[test]
     fn rotate_and_complement_are_involutions_where_they_should_be() {
         let p = euclid(5, 8, e()).unwrap();
         assert_eq!(p.rotate(0), p);
