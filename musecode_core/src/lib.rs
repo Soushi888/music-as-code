@@ -12,6 +12,7 @@ pub mod backends;
 pub mod combinators;
 pub mod control;
 pub mod display;
+pub mod euclid;
 pub mod music;
 pub mod phrase;
 pub mod pitch;
