@@ -393,7 +393,7 @@ All derive `Clone, PartialEq, Eq, Hash, Debug, Default, Serialize, Deserialize`.
 ### `Articulation`
 ```rust
 pub enum Articulation {
-    Staccato, Staccatissimo, Tenuto, Accent, Marcato,
+    Staccato, Staccatissimo, Tenuto, Accent, Marcato, Ghost,
     Legato, Slur, Fermata,
     Pizzicato, Arco,
     Trill, Mordent, Turn,
@@ -519,7 +519,7 @@ pub struct Event {
     pub dur: Beats,                   // sounding duration after articulation
     pub written_dur: Beats,           // the notated value
     pub pitch: ChromaticPitch,        // resolved, spelling preserved
-    pub velocity: u8,                 // 1..=127
+    pub velocity: u8,                 // 1..=127, see the velocity rule below
     pub voice: Option<VoiceId>,
     pub instrument: Option<InstrumentId>,
     pub articulation: Option<Articulation>,
@@ -543,7 +543,11 @@ pub enum ResolveError {
     TieMismatch { at: Beats },
     UnspellablePitch { semitone: i32, letter: Letter },
 }
+```
 
+**Velocity.** The note's own `velocity` if set, taken as given. Otherwise the dynamics level in scope through a fixed table (`ppp` 16, `pp` 33, `p` 49, `mp` 64, `mf` 80, `f` 96, `ff` 112, `fff` 127, `sfz` 120), shifted by the articulation in scope (`Accent` +15, `Marcato` +30, `Ghost` -25, everything else 0) and clamped to `1..=127`. The clamp at 1 is load-bearing: a velocity-0 note-on is a note-off on most synthesizers.
+
+```rust
 pub fn resolve(music: &Music) -> Result<Resolved, ResolveError>
 ```
 
