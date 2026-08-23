@@ -222,8 +222,8 @@ Honest list of deferred scope:
 Work is tracked on the [MuseCode project board](https://github.com/users/Soushi888/projects/6) in milestones:
 
 - **M1 "Hear the tango": shipped.** `duration()`, the resolver, `Display` and `docs/NOTATION.md`, structural analysis, rhythm patterns, Euclidean rhythms, MIDI export, and the tango example playing through `fluidsynth`. Twelve issues, eight stacked pull requests, all merged.
-- **M1.5 "The surface and the shelf":** one example file per DSL facet, each pinned by a test that snapshots its notation, the sha256 of its `.mid` and its analysis facts; a `fragments` module at layer 5 for context-free figures and generators, and `components` that do carry key, tempo, instrument and dynamics; a catalog of the fragments with categories, tags and cross-references; a Libertango example as a full composition.
-- **M2 "See the score":** LilyPond backend, parsed text syntax, the open design questions above.
+- **M1.5 "The surface and the shelf":** one example file per DSL facet (#40 rhythm, #41 euclid, #42 accents), each pinned by a test that snapshots its notation, the sha256 of its `.mid` and its analysis facts (#39); a `fragments` module at layer 5 for context-free figures and generators (#43), and `components` that do carry key, tempo, instrument and dynamics (#44); a first shelf chosen by ear (#45) and a catalog with categories, tags and cross-references (#46); a Libertango example as a full composition (#47).
+- **M2 "See the score":** LilyPond backend, parsed text syntax, the crate split (#49), the open design questions above.
 - **M3 "Feel it":** `swing`, `humanize`, voicings, chord-symbol parser, in-process audio.
 
 Everything M1 shipped is on `master` and is what the Quick Start and the Worked Example above actually run. Nothing in this file describes an unwritten function.

@@ -6,18 +6,18 @@ Complete public API for `musecode_core`. Import everything via `use musecode_cor
 
 ## Table of Contents
 
-- [pitch — Pitch types and constants](#pitch)
-- [time — Rational time and duration helpers](#time)
-- [music — Core ADT and smart constructors](#music)
-- [control — Context modifiers](#control)
-- [theory — Keys, scales, and chords](#theory)
-- [attrs — Note attributes and ID types](#attrs)
-- [combinators — Pure transformations on Music](#combinators)
+- [pitch: Pitch types and constants](#pitch)
+- [time: Rational time and duration helpers](#time)
+- [music: Core ADT and smart constructors](#music)
+- [control: Context modifiers](#control)
+- [theory: Keys, scales, and chords](#theory)
+- [attrs: Note attributes and ID types](#attrs)
+- [combinators: Pure transformations on Music](#combinators)
 - [resolve: from a tree to resolved events](#resolve)
 - [display: textual notation](#display)
 - [analysis: structural facts over events](#analysis)
-- [backends/hints — Backend metadata](#backendshints)
-- [phrase — Content-addressed fragments](#phrase)
+- [backends/hints: Backend metadata](#backendshints)
+- [phrase: Content-addressed fragments](#phrase)
 - [Macros](#macros)
 
 ---
@@ -32,11 +32,20 @@ pub enum Letter { C, D, E, F, G, A, B }
 ```
 Diatonic letter name. Enharmonic spelling is preserved at the IR level.
 
+| Item | Signature | Description |
+|------|-----------|-------------|
+| `ALL` | `const [Letter; 7]` | The seven letters in ascending order from C. |
+| `index` | `(self) -> i32` | Position in the letter cycle: C is 0 through B is 6. |
+
 #### `Accidental`
 ```rust
 pub enum Accidental { DoubleFlat, Flat, Natural, Sharp, DoubleSharp }
 ```
 Chromatic alteration applied to a `Letter`.
+
+| Item | Signature | Description |
+|------|-----------|-------------|
+| `from_offset` | `(offset: i32) -> Option<Accidental>` | The accidental for a semitone offset, or `None` outside `-2..=2`. |
 
 #### `PitchClass`
 ```rust
@@ -59,6 +68,8 @@ Fully resolved pitch. C4 = middle C = MIDI 60. `octave` follows scientific pitch
 |--------|-----------|-------------|
 | `new` | `(letter, accidental, octave: i8) -> Self` | Construct directly. |
 | `midi` | `(&self) -> i32` | MIDI note number: `12 * (octave + 1) + semitones`. |
+| `from_midi` | `(midi: i32) -> Self` | The sharp spelling of a MIDI number: 60 is C4, 61 is C#4. Total, so it also spells numbers outside the playable range. |
+| `with_letter` | `(midi: i32, letter: Letter) -> Option<Self>` | The spelling of a MIDI number on a chosen letter, or `None` when no accidental in `-2..=2` reaches it. `with_letter(71, Letter::C)` is Cb5. |
 
 #### `Degree`
 ```rust
@@ -329,6 +340,7 @@ Interval content in semitones from root. Major scale = `[0, 2, 4, 5, 7, 9, 11]`.
 | `Scale::natural_minor()` | Natural minor: `[0,2,3,5,7,8,10]` |
 | `Scale::harmonic_minor()` | Harmonic minor: `[0,2,3,5,7,8,11]` |
 | `Scale::custom(intervals)` | Any interval set. |
+| `Scale::from_mode(mode)` | The scale a `Mode` denotes, or `None` for `Mode::Custom`. |
 
 ### `Chord`
 ```rust
@@ -627,6 +639,8 @@ pub fn label_triad(pitches: &[ChromaticPitch]) -> Option<Triad>  // Triad { root
 pub fn summary(music: &Music) -> Result<String, ResolveError>
 ```
 
+`PitchClassSet` carries `bits: u16` and the spelled `classes: Vec<PitchClass>`; `len(&self) -> usize` is the number of distinct semitone classes, `0..=12`, which is what tells a whole-tone passage from a chromatic one.
+
 `TriadQuality` is `Major | Minor | Diminished | Augmented | Sus2 | Sus4`; roots are tried from the lowest sounding pitch upward, so `C D G` is `C sus2` and `G C D` is `G sus4`. Roman-numeral and functional analysis are deliberately absent.
 
 ---
@@ -746,9 +760,9 @@ par![melody, bass, inner_voice]
 
 ### `d!( ... )`
 ```rust
-d!(1)      // Degree { number: 1, alter: 0, octave_shift: 0 }  — tonic
-d!(b 3)    // Degree { number: 3, alter: -1, ... }             — flat third
-d!(# 7)    // Degree { number: 7, alter: 1, ... }              — sharp seventh
+d!(1)      // Degree { number: 1, alter: 0, octave_shift: 0 }  // tonic
+d!(b 3)    // Degree { number: 3, alter: -1, ... }             // flat third
+d!(# 7)    // Degree { number: 7, alter: 1, ... }              // sharp seventh
 ```
 
 ### `pc!( ... )`
