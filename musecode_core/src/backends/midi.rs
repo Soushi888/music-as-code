@@ -22,9 +22,11 @@
 //!   480 PPQ (`triplet(ts()) * 480 == 40`); an arbitrary `b(n, d)` that is not
 //!   integral is rounded to the nearest tick.
 //!
-//! Two deliberate simplifications for milestone 1: [`Tempo::Ramp`] contributes
-//! its `from_bpm` only, and overlapping same-pitch notes on one channel are
-//! written as they come.
+//! Deliberate simplifications for milestone 1: [`Tempo::Ramp`] contributes
+//! its `from_bpm` only; overlapping same-pitch notes on one channel are
+//! written as they come (a zero-length note directly before the same pitch
+//! releases both on most synthesizers); and program state is remembered per
+//! track, so two tracks sharing a channel can surprise each other.
 
 use std::collections::HashMap;
 use std::fmt;
@@ -81,7 +83,7 @@ pub enum MidiError {
         /// Onset of the offending tempo change.
         at: Beats,
     },
-    /// A time signature whose denominator is not a power of two; MIDI cannot encode it.
+    /// A time signature MIDI cannot encode: numerator 0, or a denominator that is not a power of two.
     BadTimeSignature {
         /// Onset of the offending time signature.
         at: Beats,
@@ -254,8 +256,9 @@ fn bpm_of(tempo: &Tempo) -> u32 {
     }
 }
 
-/// First `MidiHint` of the kind selected by `pick`, in hint order (the note's
-/// own hints come before enclosing `Control::Hint`s, so the most specific wins).
+/// First `MidiHint` of the kind selected by `pick`, in hint order: the note's
+/// own hints come first and win over enclosing `Control::Hint`s; among
+/// enclosing hints `resolve` lists the outermost first, so the outermost wins.
 fn midi_hint<T>(hints: &[BackendHint], pick: impl Fn(&MidiHint) -> Option<T>) -> Option<T> {
     hints.iter().find_map(|h| match h {
         BackendHint::Midi(m) => pick(m),
@@ -277,7 +280,8 @@ fn conductor_track(resolved: &Resolved, opts: &MidiOptions) -> Result<Vec<Timed>
         if bpm == 0 {
             return Err(MidiError::ZeroTempo { at });
         }
-        let us = (60_000_000u32 / bpm).min(SLOWEST_US_PER_QUARTER);
+        // Clamp to what a u24 can hold: bpm below 4 or above 60 million would otherwise wrap to 0 or overflow.
+        let us = (60_000_000u32 / bpm).clamp(1, SLOWEST_US_PER_QUARTER);
         out.push(Timed {
             tick: tick_at(at, opts.ppq)?,
             order: Order::Control,
@@ -292,7 +296,7 @@ fn conductor_track(resolved: &Resolved, opts: &MidiOptions) -> Result<Vec<Timed>
     }
     sigs.extend(resolved.time_sigs.iter().copied());
     for (at, sig) in sigs {
-        if sig.denominator == 0 || !sig.denominator.is_power_of_two() {
+        if sig.numerator == 0 || sig.denominator == 0 || !sig.denominator.is_power_of_two() {
             return Err(MidiError::BadTimeSignature {
                 at,
                 numerator: sig.numerator,
@@ -340,7 +344,9 @@ fn voice_track(
     let mut out = Vec::new();
     let track_channel = CHANNELS[track_index % CHANNELS.len()];
 
-    // MIDI program state lives per channel, so remember what each channel last received.
+    // MIDI program state lives per channel. Each track remembers what it last sent on each
+    // channel; a track that writes on another track's channel (a Channel hint, or more than
+    // fifteen voices) can change that channel's program without the other track noticing.
     let mut programs: HashMap<u8, u8> = HashMap::new();
 
     for ev in &track.events {
@@ -421,22 +427,22 @@ fn voice_track(
 }
 
 /// Sort by `(tick, order)`, delta-encode, and close the track at `end_tick`.
-fn finish_track(mut timed: Vec<Timed>, end_tick: u32) -> Result<Vec<TrackEvent<'static>>, MidiError> {
+fn beats_of_tick(tick: u32, ppq: u16) -> Beats {
+    Rational32::new(i32::try_from(tick).unwrap_or(i32::MAX), i32::from(ppq))
+}
+
+fn finish_track(mut timed: Vec<Timed>, end_tick: u32, ppq: u16) -> Result<Vec<TrackEvent<'static>>, MidiError> {
     timed.sort_by_key(|t| (t.tick, t.order));
     let mut out = Vec::with_capacity(timed.len() + 1);
     let mut cursor = 0u32;
     for t in timed {
         let delta = t.tick - cursor;
-        let delta = u28::try_from(delta).ok_or(MidiError::TickOverflow {
-            at: Rational32::from_integer(i32::try_from(t.tick).unwrap_or(i32::MAX)),
-        })?;
+        let delta = u28::try_from(delta).ok_or(MidiError::TickOverflow { at: beats_of_tick(t.tick, ppq) })?;
         out.push(TrackEvent { delta, kind: t.kind });
         cursor = t.tick;
     }
     let end = end_tick.max(cursor);
-    let delta = u28::try_from(end - cursor).ok_or(MidiError::TickOverflow {
-        at: Rational32::from_integer(i32::try_from(end).unwrap_or(i32::MAX)),
-    })?;
+    let delta = u28::try_from(end - cursor).ok_or(MidiError::TickOverflow { at: beats_of_tick(end, ppq) })?;
     out.push(TrackEvent { delta, kind: TrackEventKind::Meta(MetaMessage::EndOfTrack) });
     Ok(out)
 }
@@ -453,9 +459,9 @@ pub fn render_resolved(resolved: &Resolved, opts: &MidiOptions) -> Result<Vec<u8
 
     let voices = group_by_voice(&resolved.events);
     let mut tracks: Vec<Vec<TrackEvent<'static>>> = Vec::with_capacity(voices.len() + 1);
-    tracks.push(finish_track(conductor_track(resolved, opts)?, end_tick)?);
+    tracks.push(finish_track(conductor_track(resolved, opts)?, end_tick, opts.ppq)?);
     for (i, voice) in voices.iter().enumerate() {
-        tracks.push(finish_track(voice_track(voice, i, opts)?, end_tick)?);
+        tracks.push(finish_track(voice_track(voice, i, opts)?, end_tick, opts.ppq)?);
     }
 
     // Track names borrow from `voices`; build the Smf inside this scope.
@@ -590,6 +596,13 @@ mod tests {
         }
         let piece = n(C4, q()).modify(Control::Tempo(Tempo::bpm(0)));
         assert!(matches!(render_midi(&piece, &default()), Err(MidiError::ZeroTempo { .. })));
+        let piece = n(C4, q()).modify(Control::TimeSignature(TimeSig::new(0, 4)));
+        assert!(matches!(render_midi(&piece, &default()), Err(MidiError::BadTimeSignature { numerator: 0, .. })));
+        // Absurd tempi clamp to what a u24 can hold instead of wrapping to 0.
+        let piece = n(C4, q()).modify(Control::Tempo(Tempo::bpm(u32::MAX)));
+        let bytes = render_midi(&piece, &default()).unwrap();
+        let smf = parse(&bytes);
+        assert!(smf.tracks[0].iter().any(|ev| matches!(ev.kind, TrackEventKind::Meta(MetaMessage::Tempo(us)) if us.as_int() == 1)));
     }
 
     #[test]

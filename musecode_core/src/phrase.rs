@@ -101,31 +101,32 @@ impl<O> RenderCache<O> {
     /// and storing the result when there is none.
     ///
     /// This is how a backend participates in content addressing: the same
-    /// `Music` tree under the same backend is rendered once per cache.
+    /// `Music` tree under the same backend is rendered once per cache. The
+    /// output is returned by value (a clone on a hit) rather than as a map
+    /// guard, so callers can hold many results at once without holding shard
+    /// locks; a held guard would deadlock the next insert on the same shard.
     ///
     /// ```
     /// use musecode_core::prelude::*;
     /// let cache: RenderCache<Vec<u8>> = RenderCache::new();
     /// let phrase = Phrase::new(n(C4, q()));
     /// let backend = BackendId("midi".into());
-    /// let bytes = cache
-    ///     .render_with(&phrase, backend.clone(), |m| render_midi(m, &MidiOptions::default()).unwrap())
-    ///     .clone();
+    /// let bytes = cache.render_with(&phrase, backend.clone(), |m| {
+    ///     render_midi(m, &MidiOptions::default()).unwrap()
+    /// });
     /// assert!(cache.get(phrase.hash(), &backend).is_some());
     /// assert_eq!(&bytes[0..4], b"MThd");
     /// ```
-    pub fn render_with<F: FnOnce(&Music) -> O>(
-        &self,
-        phrase: &Phrase,
-        backend: BackendId,
-        f: F,
-    ) -> dashmap::mapref::one::Ref<'_, (blake3::Hash, BackendId), O> {
+    pub fn render_with<F: FnOnce(&Music) -> O>(&self, phrase: &Phrase, backend: BackendId, f: F) -> O
+    where
+        O: Clone,
+    {
         let key = (*phrase.hash(), backend);
         if let Some(hit) = self.map.get(&key) {
-            return hit;
+            return hit.clone();
         }
         let rendered = f(phrase.music());
-        self.map.entry(key).or_insert(rendered).downgrade()
+        self.map.entry(key).or_insert_with(|| rendered).clone()
     }
 }
 
