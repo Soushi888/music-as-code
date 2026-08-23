@@ -4,6 +4,13 @@
 crate := `grep '^name' musecode_core/Cargo.toml | cut -d'"' -f2`
 port  := "8080"
 
+# fluidsynth master gain for `just play`. Its own default is 0.2, which peaks
+# around 5% of full scale on the tango and reads as silence on a quiet output.
+gain  := "1"
+
+# Soundfont for `just play`. Empty picks the first one in /usr/share/sounds/sf2.
+soundfont := ""
+
 # List available recipes
 default:
     @just --list
@@ -38,9 +45,14 @@ ci: check test
 render NAME:
     cargo run --example {{NAME}}
 
-# Render an example and play target/<NAME>.mid through fluidsynth (first soundfont found)
+# Override either knob, before the recipe name: `just gain=0.5 soundfont=/path/x.sf2 play tango`
+# Render an example and play target/<NAME>.mid through fluidsynth
 play NAME: (render NAME)
-    fluidsynth -ni $(ls /usr/share/sounds/sf2/*.sf2 | head -1) target/{{NAME}}.mid
+    #!/usr/bin/env bash
+    set -euo pipefail
+    sf="{{soundfont}}"
+    [ -n "$sf" ] || sf=$(ls /usr/share/sounds/sf2/*.sf2 | head -1)
+    fluidsynth -g {{gain}} -ni "$sf" "target/{{NAME}}.mid"
 
 # Alias for play
 listen NAME: (play NAME)

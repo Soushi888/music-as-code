@@ -160,7 +160,7 @@ fn main() {
 
 The melody is in scale-degree space: change `pc!(F)` to `pc!(C)` and the `tango` bass notes are the only thing that needs manual updating. The descending line follows automatically.
 
-This is `musecode_core/examples/tango.rs`. Run `just play tango` to render it and hear it through `fluidsynth`, or `just render tango` to write `target/tango.mid` without playing. LilyPond output is milestone M2.
+This is `musecode_core/examples/tango.rs`. Run `just play tango` to render it and hear it through `fluidsynth`, or `just render tango` to write `target/tango.mid` without playing. Two knobs are Justfile variables, and `just` wants them before the recipe name: `just gain=0.5 soundfont=/path/to/other.sf2 play tango`. `gain` defaults to 1 because fluidsynth's own default of 0.2 peaks at about 5% of full scale and is easy to mistake for silence; an empty `soundfont` picks the first one in `/usr/share/sounds/sf2`. LilyPond output is milestone M2.
 
 ---
 
