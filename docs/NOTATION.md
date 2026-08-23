@@ -82,8 +82,8 @@ The README Piazzolla sketch prints as:
 
 ```
 tempo(96) { time(4/4) { key(F minor) {
-  { G3:e. G3:s G3:e G3:e G3:q G3:q | r:q r:q. | 5:q b5:e 4:e b3:h }
-  { C3:e. C3:s C3:e C3:e C3:q C3:q | r:q r:q. | transpose_diatonic(-1) { 5:q b5:e 4:e b3:h } }
+  { G3:e. G3:s G3:e G3:e G3:q G3:q | r:q r:q. | 5:q b5:e 4:e 3:h }
+  { C3:e. C3:s C3:e C3:e C3:q C3:q | r:q r:q. | transpose_diatonic(-1) { 5:q b5:e 4:e 3:h } }
   { F3:e. F3:s F3:e F3:e F3:q F3:q | r:q r:q. | 1:w }
   { F3:e. F3:s F3:e F3:e F3:q F3:q | r:q r:q. | 1:w }
 } } }

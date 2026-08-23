@@ -83,7 +83,9 @@ pub fn pitch_class_set(events: &[Event]) -> PitchClassSet {
 
 /// Counts of melodic intervals, in signed semitones, between consecutive
 /// events of the same voice. Events that share an onset within a voice (a
-/// chord written into one voice) are not counted as a melodic step.
+/// chord written into one voice) are not counted as a melodic step. Voices
+/// are `Event::voice` values, so `Par` branches with no `Control::Voice`
+/// all merge into one line and their cross-branch leaps are counted.
 pub fn interval_histogram(events: &[Event]) -> BTreeMap<i32, usize> {
     let mut by_voice: BTreeMap<Option<&str>, Vec<&Event>> = BTreeMap::new();
     for e in events {
@@ -277,6 +279,8 @@ mod tests {
         assert_eq!(h.get(&7), Some(&1));
         assert_eq!(h.get(&-7), Some(&1));
         assert_eq!(h.get(&0), None);
+        assert_eq!(h.get(&1), Some(&1));
+        assert_eq!(h.get(&-2), Some(&1));
         assert_eq!(h.values().sum::<usize>(), 4);
     }
 

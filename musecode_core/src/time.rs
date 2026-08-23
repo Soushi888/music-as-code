@@ -70,8 +70,11 @@ pub fn ts() -> Beats { b(1, 8) }
 /// assert_eq!(duration_name(triplet(q())), "q3");
 /// assert_eq!(duration_name(b(5, 4)), "5/4");
 /// ```
+/// A named duration helper, for the table in [`duration_name`].
+type Named = (&'static str, fn() -> Beats);
+
 pub fn duration_name(d: Beats) -> String {
-    const NAMES: [(&str, fn() -> Beats); 6] = [("w", w), ("h", h), ("q", q), ("e", e), ("s", s), ("t", ts)];
+    const NAMES: [Named; 6] = [("w", w), ("h", h), ("q", q), ("e", e), ("s", s), ("t", ts)];
     for (name, base) in NAMES {
         let base = base();
         if d == base {
