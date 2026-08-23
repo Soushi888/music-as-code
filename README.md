@@ -174,6 +174,8 @@ musecode_core/src/
 ├── control.rs        Layer 4 support: Control enum
 ├── theory.rs         Layer 4: Key, Scale, Mode, Chord, Voicing
 ├── combinators.rs    Layer 5: transpose, augment, retrograde, invert, canon
+├── rhythm.rs         Layer 5: Pattern (hits and rests, no pitch), tresillo, habanera, cinquillo, straight
+├── euclid.rs         Layer 5: Euclidean rhythms (Bjorklund) as Patterns; grid, rotate, complement, legato
 ├── resolve.rs        Layer 5: resolve() from Music to a flat Event list
 ├── analysis.rs       Layer 5: range, pitch-class set, intervals, slices, triads, summary
 ├── display.rs        Layer 3: impl Display for Music (docs/NOTATION.md)
@@ -223,12 +225,12 @@ Work is tracked on the [MuseCode project board](https://github.com/users/Soushi8
 - **M2:** LilyPond backend, parsed text syntax, the open design questions below.
 - **M3:** `swing`, `humanize`, voicings, chord-symbol parser, in-process audio.
 
-The original list, each a natural weekend project:
+The original list, each a natural weekend project (1 and 4 shipped in M1):
 
-1. **Property tests.** Associativity of `Seq`/`Par`, identity laws, `transpose(0)` is identity, `augment(h()).diminish(h())` is identity.
+1. **Property tests.** Done: `musecode_core/tests/laws.rs` checks associativity of `Seq`/`Par`, identity laws, `transpose(0)` is identity, `augment(h()).diminish(h())` is identity.
 2. **LilyPond backend.** Tree walk producing text. Resolve scale degrees. Handle ties, articulations, basic dynamics. Target: the Piazzolla sketch above renders to a readable PDF.
 3. **Theory layer.** Chord-symbol parser (`nom` crate). Voicings as functions `Chord -> Voicing -> i8 -> Music`. Round-trip test: music to chord analysis to symbol and back.
-4. **MIDI backend.** `midly` crate handles file format. Resolve pitches to MIDI numbers, durations to ticks.
+4. **MIDI backend.** Done: `backends::midi` over the `midly` crate, format 1, 480 PPQ, one track per voice (`write_midi`, `render_midi`).
 5. **Tier-1 audio.** `oxisynth` + a soundfont. The feedback loop (edit, render, hear) is now closed.
 
 ---
