@@ -81,6 +81,7 @@ The codebase is organized in seven conceptual layers, each building on the previ
 | 4. Theory | `theory` | `Key`, `Scale`, `Mode`, `Chord`, `ChordQuality`, `Voicing` |
 | 5. Combinators | `combinators` | `transpose`, `augment`, `retrograde`, `invert`, `canon`, `map_notes` |
 | 6. Backend hints | `backends/hints` | `BackendHint`, `LilypondHint`, `MidiHint`, `AudioHint` |
+| 6. MIDI backend | `backends/midi` | `render_midi`, `write_midi`, `MidiOptions`, `MidiError` |
 | 7. Phrases | `phrase` | `Phrase` (Arc + Blake3 hash), `RenderCache` |
 
 Supporting modules: `attrs` (shared ID newtypes and `NoteAttrs`), `control` (`Control` enum), `prelude` (re-exports everything).
@@ -180,7 +181,8 @@ musecode_core/src/
 ├── phrase.rs         Layer 7: Phrase (content-hashed), RenderCache
 └── backends/
     ├── mod.rs
-    └── hints.rs      Layer 6: BackendHint, LilypondHint, MidiHint, AudioHint
+    ├── hints.rs      Layer 6: BackendHint, LilypondHint, MidiHint, AudioHint
+    └── midi.rs       Layer 6: MIDI file export (render_midi, write_midi)
 ```
 
 ---
