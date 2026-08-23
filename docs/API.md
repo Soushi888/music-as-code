@@ -571,6 +571,22 @@ assert_eq!(pitches, vec![C4, E4, G4]);
 
 ---
 
+## `rhythm`
+
+Rhythm without pitch. A `Pattern` is a list of `Step::Hit(Beats)` / `Step::Rest(Beats)`; pitch is applied afterwards, so one rhythm serves any line. Re-exported from the prelude.
+
+| Item | Signature | Notes |
+|------|-----------|-------|
+| `Pattern::new` / `Pattern::hits` | `(impl IntoIterator<Item = Step>)` / `(impl IntoIterator<Item = Beats>)` | `hits` makes every duration a struck note |
+| `steps`, `hit_count`, `duration` | accessors | `duration` sums hits and rests |
+| `then`, `repeat` | `(Pattern) -> Pattern`, `(usize) -> Pattern` | concatenate, loop (`repeat(0)` is empty) |
+| `on` | `(impl Into<Pitch>) -> Music` | every hit gets the pitch; rests stay rests; result is a `Seq` |
+| `with` | `(impl IntoIterator<Item = impl Into<Pitch>>) -> Music` | pitches cycle over the hits; no pitches = silence of the same length |
+| `tresillo()` | q. q. q (one bar of 4/4) | nuevo tango bass, 3+3+2 |
+| `habanera()` | e. s e e (half a bar) | traditional tango / milonga bass |
+| `cinquillo()` | e s e s e (half a bar) | five hits over four eighths |
+| `straight(n, dur)` | n equal hits | |
+
 ## `display`
 
 `impl Display for Music` prints the notation specified in [NOTATION.md](NOTATION.md): `C4:q E4:q G4:h`, `[C4 E4 G4]:h` for a chord, `{ a | b }` for a `Par`, `key(F minor) { ... }` for a `Modify`, `r:q` for a rest, `1:q b3:e` for degrees, `+M3:q` for intervals. Every public type that appears in the notation implements `Display` in its own module (`Letter`, `Accidental`, `PitchClass`, `ChromaticPitch`, `Degree`, `Interval`, `IntervalQuality`, `Pitch`, `Tempo`, `TimeSig`, `Dynamics`, `Mode`, `Key`, `Scale`, `Articulation`, `NoteAttrs`, `Control`), and `time::duration_name(Beats) -> String` names a duration (`q`, `e.`, `h..`, `q3`, else `num/den`).

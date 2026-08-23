@@ -118,7 +118,7 @@ A melody written with `Degree` pitches reharmonizes freely: wrap the same `Music
 
 ## Worked Example: ii-V-I in F minor
 
-A Piazzolla-flavored four-bar sketch showing bass, comping, and melody together:
+A Piazzolla-flavored four-bar sketch showing bass, comping, and melody together. The bass rhythm is a value of its own (`rhythm::tresillo()`), pitched at the call site:
 
 ```rust
 use musecode_core::prelude::*;
@@ -126,12 +126,9 @@ use musecode_core::prelude::*;
 fn main() {
     let key = Key::minor(pc!(F));
 
-    // Tango bass: dotted-eighth + 16th + 8th + 8th + quarter + quarter
-    let tango = |root: ChromaticPitch| seq![
-        n(root, dot(e())), n(root, s()),
-        n(root, e()),      n(root, e()),
-        n(root, q()),      n(root, q()),
-    ];
+    // Nuevo tango bass: the tresillo (3+3+2) on the root of each bar. The
+    // rhythm comes from `rhythm::tresillo`; only the pitch is decided here.
+    let tango = |root: ChromaticPitch| tresillo().on(root);
 
     // Shell-voiced comping on beats 2 and 4
     let comp_rest = r(q()) + r(dot(q()));

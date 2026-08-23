@@ -28,6 +28,7 @@ cargo doc --no-deps  # build rustdoc without serving
 | 2 | `time` | `Beats = Rational32`, `Tempo`, `TimeSig`, `Dynamics`, duration helpers |
 | 3 | `music` + `attrs` + `control` | `Music` (5 constructors), `Note`, `NoteAttrs`, `Control` (12 variants), operator overloads |
 | 4 | `theory` | `Key`, `Scale`, `Mode`, `Chord`, `ChordQuality`, `Voicing` |
+| 5 | `rhythm` | `Pattern`, `Step`, `tresillo`, `habanera`, `cinquillo`, `straight`: rhythm without pitch, `.on(pitch)` / `.with(pitches)` to get `Music` |
 | 5 | `combinators` | `transpose`, `augment`, `retrograde`, `invert`, `canon`, `map_notes` |
 | 3 | `display` | `impl Display for Music`, the notation in `docs/NOTATION.md` |
 | 5 | `resolve` | `resolve()`, `Event`, `Resolved`, `ResolveError` (the one pass that gives `Degree`/`Interval`/`Control` meaning) |
@@ -62,6 +63,7 @@ pub enum Music {
 - `attrs` must never import `music` or `control` (it exists specifically to break that cycle)
 - `control` must never import `music`
 - `combinators` may import `music` and `control` but not `phrase`
+- `rhythm` may import `music`, `pitch`, `time` only; never `control`, `theory`, `resolve`, or a backend
 - `resolve` may import `music`, `control`, `theory`, `pitch`, `time`, `attrs`, `backends/hints`; never `phrase`, `combinators`, or a concrete backend
 - `analysis` takes `&[Event]` from `resolve`; it must never import a backend (`summary(&Music)` is the one convenience that resolves a tree itself)
 - `backends/midi` consumes `Resolved` from `resolve` (plus `music`, `attrs`, `backends/hints`, `time`); it must never import `combinators`, `theory`, `analysis`, or `display`
