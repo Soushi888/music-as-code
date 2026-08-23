@@ -23,6 +23,7 @@ graph TD
     combinators --> music & control & time
     display --> music & time
     analysis --> resolve & pitch & time
+    rhythm --> music & pitch & time
     midi["backends/midi"] --> resolve & music & attrs & hints & time
     resolve --> music & control & theory & pitch & time & attrs & hints
     phrase --> music & attrs
@@ -42,6 +43,7 @@ graph TD
 | `combinators` | `music`, `control`, `time` |
 | `display` | `music`, `time` (plus `Display` impls that live in each type's own module) |
 | `resolve` | `music`, `control`, `theory`, `pitch`, `time`, `attrs`, `backends/hints` |
+| `rhythm` | `music`, `pitch`, `time` |
 | `analysis` | `resolve`, `pitch`, `time` (and `music` for the `summary` argument) |
 | `backends/midi` | `resolve`, `music`, `attrs`, `backends/hints`, `time` (plus the `midly` crate) |
 | `phrase` | `music`, `attrs` |

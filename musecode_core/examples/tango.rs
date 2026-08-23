@@ -1,5 +1,6 @@
-//! The README's Piazzolla sketch, unchanged: a ii-V-I in F minor with a tango
-//! bass, shell-voiced comping and a melody in scale-degree space.
+//! The README's Piazzolla sketch: a ii-V-I in F minor with a tresillo bass
+//! (nuevo tango, not the habanera of the traditional kind), shell-voiced
+//! comping and a melody in scale-degree space.
 //!
 //! `cargo run --example tango` prints the notation and the structural summary,
 //! then writes `target/tango.mid`. `just play tango` does that and plays the
@@ -10,12 +11,9 @@ use musecode_core::prelude::*;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let key = Key::minor(pc!(F));
 
-    // Tango bass: dotted-eighth + 16th + 8th + 8th + quarter + quarter
-    let tango = |root: ChromaticPitch| seq![
-        n(root, dot(e())), n(root, s()),
-        n(root, e()),      n(root, e()),
-        n(root, q()),      n(root, q()),
-    ];
+    // Nuevo tango bass: the tresillo (3+3+2) on the root of each bar. The
+    // rhythm comes from `rhythm::tresillo`; only the pitch is decided here.
+    let tango = |root: ChromaticPitch| tresillo().on(root);
 
     // Shell-voiced comping on beats 2 and 4
     let comp_rest = r(q()) + r(dot(q()));
