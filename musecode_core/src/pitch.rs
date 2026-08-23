@@ -131,6 +131,40 @@ impl ChromaticPitch {
     pub fn midi(&self) -> i32 {
         12 * (self.octave as i32 + 1) + self.class.semitones()
     }
+
+    /// Construct a pitch from a MIDI note number, spelled with sharps.
+    ///
+    /// The inverse of [`midi`][Self::midi]: `from_midi(m).midi() == m` for every
+    /// `m`, including values outside `0..=127` (negative numbers land in
+    /// octave -2 and below). Black keys are spelled with sharps, so MIDI 61 is
+    /// C#4, never Db4; callers that need a key-aware spelling resolve through
+    /// the scale instead.
+    ///
+    /// # Examples
+    /// ```
+    /// use musecode_core::pitch::{ChromaticPitch, Accidental, Letter, C4, CS4};
+    /// assert_eq!(ChromaticPitch::from_midi(60), C4);
+    /// assert_eq!(ChromaticPitch::from_midi(61), CS4);
+    /// assert_eq!(ChromaticPitch::from_midi(-1), ChromaticPitch::new(Letter::B, Accidental::Natural, -2));
+    /// ```
+    pub fn from_midi(midi: i32) -> Self {
+        let octave = midi.div_euclid(12) - 1;
+        let (letter, accidental) = match midi.rem_euclid(12) {
+            0 => (Letter::C, Accidental::Natural),
+            1 => (Letter::C, Accidental::Sharp),
+            2 => (Letter::D, Accidental::Natural),
+            3 => (Letter::D, Accidental::Sharp),
+            4 => (Letter::E, Accidental::Natural),
+            5 => (Letter::F, Accidental::Natural),
+            6 => (Letter::F, Accidental::Sharp),
+            7 => (Letter::G, Accidental::Natural),
+            8 => (Letter::G, Accidental::Sharp),
+            9 => (Letter::A, Accidental::Natural),
+            10 => (Letter::A, Accidental::Sharp),
+            _ => (Letter::B, Accidental::Natural),
+        };
+        Self { class: PitchClass { letter, accidental }, octave: octave as i8 }
+    }
 }
 
 /// A scale degree relative to the active [`Key`][crate::theory::Key] context.
@@ -342,4 +376,27 @@ macro_rules! d {
     (# $n:literal) => {
         $crate::pitch::Degree { number: $n, alter: 1, octave_shift: 0 }
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_midi_round_trips_over_the_extended_range() {
+        for m in -24..=150 {
+            let p = ChromaticPitch::from_midi(m);
+            assert_eq!(p.midi(), m, "midi {m} became {p:?}");
+            assert_ne!(p.class.accidental, Accidental::Flat, "from_midi spells with sharps only");
+        }
+    }
+
+    #[test]
+    fn from_midi_matches_the_named_constants() {
+        assert_eq!(ChromaticPitch::from_midi(48), C3);
+        assert_eq!(ChromaticPitch::from_midi(59), B3);
+        assert_eq!(ChromaticPitch::from_midi(60), C4);
+        assert_eq!(ChromaticPitch::from_midi(66), FS4);
+        assert_eq!(ChromaticPitch::from_midi(83), B5);
+    }
 }

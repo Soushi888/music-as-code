@@ -17,7 +17,9 @@ use crate::pitch::PitchClass;
 pub enum Mode {
     /// Ionian mode: W-W-H-W-W-W-H. The standard major scale.
     Major,
-    /// Aeolian / natural minor: W-H-W-W-H-W-W.
+    /// Natural minor: W-H-W-W-H-W-W. This is the Aeolian mode; there is
+    /// deliberately no separate `Aeolian` variant, so that one scale has one
+    /// spelling and content hashes of musically identical trees agree.
     Minor,
     /// Dorian mode: W-H-W-W-W-H-W. Minor with a raised 6th (common in jazz/folk).
     Dorian,
@@ -27,16 +29,17 @@ pub enum Mode {
     Lydian,
     /// Mixolydian mode: W-W-H-W-W-H-W. Major with a lowered 7th (blues, rock).
     Mixolydian,
-    /// Aeolian mode (natural minor): same as [`Mode::Minor`].
-    Aeolian,
     /// Locrian mode: H-W-W-H-W-W-W. Diminished tonic triad; rare in practice.
     Locrian,
     /// Harmonic minor: natural minor with a raised 7th, creating a leading tone.
     HarmonicMinor,
     /// Melodic minor (ascending): natural minor with raised 6th and 7th.
     MelodicMinor,
-    /// User-defined mode referenced by a numeric ID. Useful for gamelan, microtonal,
-    /// or other non-Western scale systems stored externally.
+    /// User-defined mode tagged by an opaque `u32`. The tag carries no interval
+    /// content of its own: a `Degree` under `Key { mode: Custom(_) }` resolves
+    /// only when a [`Control::Scale`][crate::control::Control::Scale] is in
+    /// scope, and is an error otherwise. The number is for the composer to
+    /// distinguish custom keys (gamelan, microtonal, synthetic scales).
     Custom(u32),
 }
 

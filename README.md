@@ -63,8 +63,9 @@ melody
     .retrograde()                   // time-reverse
     .invert(C4.midi())              // pitch-invert around C4
     .pipe(canon(vec![(q(), 7)]))    // add a canon voice at a fifth
-    .pipe(humanize(42, 0.05))       // subtle timing/velocity jitter
 ```
+
+`swing` and `humanize` are declared but not implemented: calling either panics with `todo!()`. They are scheduled for milestone M3 (see [Roadmap](#roadmap)).
 
 ---
 
@@ -212,7 +213,13 @@ Honest list of deferred scope:
 
 ## Roadmap
 
-Concrete next steps, each a natural weekend project:
+Work is tracked on the [MuseCode project board](https://github.com/users/Soushi888/projects/6) in three milestones:
+
+- **M1 "Hear the tango":** `duration()`, the resolver, `Display`, structural analysis, MIDI export, and the tango example playing through `fluidsynth`.
+- **M2:** LilyPond backend, parsed text syntax, the open design questions below.
+- **M3:** `swing`, `humanize`, voicings, chord-symbol parser, in-process audio.
+
+The original list, each a natural weekend project:
 
 1. **Property tests.** Associativity of `Seq`/`Par`, identity laws, `transpose(0)` is identity, `augment(h()).diminish(h())` is identity.
 2. **LilyPond backend.** Tree walk producing text. Resolve scale degrees. Handle ties, articulations, basic dynamics. Target: the Piazzolla sketch above renders to a readable PDF.
