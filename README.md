@@ -151,14 +151,16 @@ fn main() {
         .modify(Control::TimeSignature(TimeSig::common()))
         .modify(Control::Tempo(Tempo::bpm(96)));
 
-    // Same source tree, three outputs (backends not yet implemented):
-    // LilypondBackend::default().render(&piece) -> score PDF
-    // MidiBackend::default().render(&piece)     -> .mid file
-    // FluidsynthBackend::new("FluidR3.sf2").render(&piece) -> .wav
+    // Read it, analyse it, hear it:
+    println!("{piece}");                                    // the notation, one bar per line
+    print!("{}", summary(&piece).unwrap());                 // range, pitch classes, intervals
+    write_midi(&piece, "target/tango.mid", &MidiOptions::default()).unwrap();
 }
 ```
 
 The melody is in scale-degree space: change `pc!(F)` to `pc!(C)` and the `tango` bass notes are the only thing that needs manual updating. The descending line follows automatically.
+
+This is `musecode_core/examples/tango.rs`. Run `just play tango` to render it and hear it through `fluidsynth`, or `just render tango` to write `target/tango.mid` without playing. Two knobs are Justfile variables, and `just` wants them before the recipe name: `just gain=0.5 soundfont=/path/to/other.sf2 play tango`. `gain` defaults to 1 because fluidsynth's own default of 0.2 peaks at about 5% of full scale and is easy to mistake for silence; an empty `soundfont` picks the first one in `/usr/share/sounds/sf2`. LilyPond output is milestone M2.
 
 ---
 

@@ -9,6 +9,9 @@ cargo check          # type-check without producing artifacts
 cargo test           # run the test suite
 cargo test <name>    # run a single test by name
 just ci              # check + test in one shot
+just render tango    # run musecode_core/examples/tango.rs: print notation + summary, write target/tango.mid
+just play tango      # render, then play target/tango.mid through fluidsynth (just listen is an alias)
+just gain=0.5 soundfont=/path/x.sf2 play tango  # same, quieter, other soundfont; overrides go before the recipe name; gain defaults to 1 since fluidsynth's own 0.2 is nearly inaudible
 just docs            # build and serve rustdoc at http://localhost:8080/musecode_core/
 cargo doc --no-deps  # build rustdoc without serving
 ```
