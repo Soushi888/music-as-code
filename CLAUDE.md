@@ -26,7 +26,9 @@ cargo doc --no-deps  # build rustdoc without serving
 | 3 | `music` + `attrs` + `control` | `Music` (5 constructors), `Note`, `NoteAttrs`, `Control` (12 variants), operator overloads |
 | 4 | `theory` | `Key`, `Scale`, `Mode`, `Chord`, `ChordQuality`, `Voicing` |
 | 5 | `combinators` | `transpose`, `augment`, `retrograde`, `invert`, `canon`, `map_notes` |
+| 3 | `display` | `impl Display for Music`, the notation in `docs/NOTATION.md` |
 | 5 | `resolve` | `resolve()`, `Event`, `Resolved`, `ResolveError` (the one pass that gives `Degree`/`Interval`/`Control` meaning) |
+| 5 | `analysis` | `pitch_range`, `pitch_class_set`, `interval_histogram`, `vertical_slices`, `label_triad`, `summary` over `&[Event]` |
 | 6 | `backends/hints` | `BackendHint`, `LilypondHint`, `MidiHint`, `AudioHint` |
 | 7 | `phrase` | `Phrase` (Arc + Blake3 hash), `RenderCache` |
 
@@ -57,6 +59,7 @@ pub enum Music {
 - `control` must never import `music`
 - `combinators` may import `music` and `control` but not `phrase`
 - `resolve` may import `music`, `control`, `theory`, `pitch`, `time`, `attrs`, `backends/hints`; never `phrase`, `combinators`, or a concrete backend
+- `analysis` takes `&[Event]` from `resolve`; it must never import a backend (`summary(&Music)` is the one convenience that resolves a tree itself)
 - `phrase` must never import `combinators` or `theory`
 
 ### Rational time

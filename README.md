@@ -174,6 +174,9 @@ musecode_core/src/
 ├── control.rs        Layer 4 support: Control enum
 ├── theory.rs         Layer 4: Key, Scale, Mode, Chord, Voicing
 ├── combinators.rs    Layer 5: transpose, augment, retrograde, invert, canon
+├── resolve.rs        Layer 5: resolve() from Music to a flat Event list
+├── analysis.rs       Layer 5: range, pitch-class set, intervals, slices, triads, summary
+├── display.rs        Layer 3: impl Display for Music (docs/NOTATION.md)
 ├── phrase.rs         Layer 7: Phrase (content-hashed), RenderCache
 └── backends/
     ├── mod.rs

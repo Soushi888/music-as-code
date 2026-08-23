@@ -5,6 +5,8 @@
 //! raw chromatic pitches. Resolution to [`ChromaticPitch`][crate::pitch::ChromaticPitch]
 //! happens at render time via the accumulated `Control` context.
 
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 
 use crate::pitch::PitchClass;
@@ -69,6 +71,24 @@ impl Mode {
     }
 }
 
+impl fmt::Display for Mode {
+    /// Lowercase names: `major`, `minor`, `dorian`, `harmonic_minor`; `custom(3)`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Mode::Major => f.write_str("major"),
+            Mode::Minor => f.write_str("minor"),
+            Mode::Dorian => f.write_str("dorian"),
+            Mode::Phrygian => f.write_str("phrygian"),
+            Mode::Lydian => f.write_str("lydian"),
+            Mode::Mixolydian => f.write_str("mixolydian"),
+            Mode::Locrian => f.write_str("locrian"),
+            Mode::HarmonicMinor => f.write_str("harmonic_minor"),
+            Mode::MelodicMinor => f.write_str("melodic_minor"),
+            Mode::Custom(n) => write!(f, "custom({n})"),
+        }
+    }
+}
+
 /// A tonal centre: tonic pitch class plus mode.
 ///
 /// Used in [`Control::Key`][crate::control::Control::Key] to establish the
@@ -102,6 +122,13 @@ impl Key {
     /// Shorthand for a natural minor key: `Key::new(tonic, Mode::Minor)`.
     pub fn minor(tonic: PitchClass) -> Self {
         Self { tonic, mode: Mode::Minor }
+    }
+}
+
+impl fmt::Display for Key {
+    /// `F minor`, `C lydian`, `Bb major`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} {}", self.tonic, self.mode)
     }
 }
 
@@ -165,6 +192,18 @@ mod tests {
         }
         assert_eq!(Scale::from_mode(Mode::Major), Some(Scale::major()).map(|s| Scale { name: Some("major".into()), ..s }));
         assert_eq!(Scale::from_mode(Mode::Custom(3)), None);
+    }
+}
+
+impl fmt::Display for Scale {
+    /// Space-separated intervals, preceded by the quoted name if there is one:
+    /// `0 2 4 7 9`, `"major" 0 2 4 5 7 9 11`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(name) = &self.name {
+            write!(f, "{name:?} ")?;
+        }
+        let parts: Vec<String> = self.intervals.iter().map(|i| i.to_string()).collect();
+        f.write_str(&parts.join(" "))
     }
 }
 

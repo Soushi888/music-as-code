@@ -13,7 +13,9 @@ Complete public API for `musecode_core`. Import everything via `use musecode_cor
 - [theory — Keys, scales, and chords](#theory)
 - [attrs — Note attributes and ID types](#attrs)
 - [combinators — Pure transformations on Music](#combinators)
-- [resolve — From a tree to resolved events](#resolve)
+- [resolve: from a tree to resolved events](#resolve)
+- [display: textual notation](#display)
+- [analysis: structural facts over events](#analysis)
 - [backends/hints — Backend metadata](#backendshints)
 - [phrase — Content-addressed fragments](#phrase)
 - [Macros](#macros)
@@ -566,6 +568,35 @@ let triad = seq![n(d!(1), q()), n(d!(3), q()), n(d!(5), h())]
 let pitches: Vec<_> = resolve(&triad)?.events.iter().map(|e| e.pitch).collect();
 assert_eq!(pitches, vec![C4, E4, G4]);
 ```
+
+---
+
+## `display`
+
+`impl Display for Music` prints the notation specified in [NOTATION.md](NOTATION.md): `C4:q E4:q G4:h`, `[C4 E4 G4]:h` for a chord, `{ a | b }` for a `Par`, `key(F minor) { ... }` for a `Modify`, `r:q` for a rest, `1:q b3:e` for degrees, `+M3:q` for intervals. Every public type that appears in the notation implements `Display` in its own module (`Letter`, `Accidental`, `PitchClass`, `ChromaticPitch`, `Degree`, `Interval`, `IntervalQuality`, `Pitch`, `Tempo`, `TimeSig`, `Dynamics`, `Mode`, `Key`, `Scale`, `Articulation`, `NoteAttrs`, `Control`), and `time::duration_name(Beats) -> String` names a duration (`q`, `e.`, `h..`, `q3`, else `num/den`).
+
+```rust
+use musecode_core::prelude::*;
+let m = seq![n(C4, q()), chord([E4, G4], h())].modify(Control::Tempo(Tempo::bpm(120)));
+assert_eq!(m.to_string(), "tempo(120) { C4:q [E4 G4]:h }");
+```
+
+---
+
+## `analysis`
+
+Over `&[Event]` from `resolve`:
+
+```rust
+pub fn pitch_range(events: &[Event]) -> Option<(ChromaticPitch, ChromaticPitch)>
+pub fn pitch_class_set(events: &[Event]) -> PitchClassSet        // { bits: u16, classes: Vec<PitchClass> }
+pub fn interval_histogram(events: &[Event]) -> BTreeMap<i32, usize>  // signed semitones -> count, per voice
+pub fn vertical_slices(events: &[Event]) -> Vec<(Beats, Vec<ChromaticPitch>)>
+pub fn label_triad(pitches: &[ChromaticPitch]) -> Option<Triad>  // Triad { root: PitchClass, quality: TriadQuality }
+pub fn summary(music: &Music) -> Result<String, ResolveError>
+```
+
+`TriadQuality` is `Major | Minor | Diminished | Augmented | Sus2 | Sus4`; roots are tried from the lowest sounding pitch upward, so `C D G` is `C sus2` and `G C D` is `G sus4`. Roman-numeral and functional analysis are deliberately absent.
 
 ---
 

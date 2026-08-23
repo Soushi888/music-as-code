@@ -3,6 +3,8 @@
 //! scale-degree, or interval-relative form, all resolving to the same
 //! chromatic output via a `Key`/`Scale` context.
 
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 
 /// The diatonic letter name of a pitch. Enharmonic spelling is preserved.
@@ -360,6 +362,95 @@ impl From<Degree> for Pitch {
 impl From<Interval> for Pitch {
     fn from(i: Interval) -> Self {
         Pitch::Interval(i)
+    }
+}
+
+// === Display (the notation in docs/NOTATION.md) ===
+
+impl fmt::Display for Letter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Letter::C => "C",
+            Letter::D => "D",
+            Letter::E => "E",
+            Letter::F => "F",
+            Letter::G => "G",
+            Letter::A => "A",
+            Letter::B => "B",
+        })
+    }
+}
+
+impl fmt::Display for Accidental {
+    /// `bb`, `b`, nothing, `#`, `##`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Accidental::DoubleFlat => "bb",
+            Accidental::Flat => "b",
+            Accidental::Natural => "",
+            Accidental::Sharp => "#",
+            Accidental::DoubleSharp => "##",
+        })
+    }
+}
+
+impl fmt::Display for PitchClass {
+    /// `C`, `Eb`, `F#`, `Cb`, `Abb`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}{}", self.letter, self.accidental)
+    }
+}
+
+impl fmt::Display for ChromaticPitch {
+    /// `C4`, `Eb5`, `F#3`, `Cb5`; negative octaves print as `C-1`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}{}", self.class, self.octave)
+    }
+}
+
+impl fmt::Display for Degree {
+    /// `1`, `b3`, `#7`, `bb3`; octave shifts as trailing `'` (up) or `,` (down): `5'`, `1,,`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let alter = if self.alter < 0 { "b".repeat(self.alter.unsigned_abs() as usize) } else { "#".repeat(self.alter as usize) };
+        let shift = if self.octave_shift < 0 {
+            ",".repeat(self.octave_shift.unsigned_abs() as usize)
+        } else {
+            "'".repeat(self.octave_shift as usize)
+        };
+        write!(f, "{alter}{}{shift}", self.number)
+    }
+}
+
+impl fmt::Display for IntervalQuality {
+    /// `dd`, `d`, `m`, `P`, `M`, `A`, `AA`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            IntervalQuality::DoublyDiminished => "dd",
+            IntervalQuality::Diminished => "d",
+            IntervalQuality::Minor => "m",
+            IntervalQuality::Perfect => "P",
+            IntervalQuality::Major => "M",
+            IntervalQuality::Augmented => "A",
+            IntervalQuality::DoublyAugmented => "AA",
+        })
+    }
+}
+
+impl fmt::Display for Interval {
+    /// `+M3`, `-P5`, `+m2`; the sign is always written.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let sign = if self.generic < 0 { '-' } else { '+' };
+        write!(f, "{sign}{}{}", self.quality, self.generic.unsigned_abs())
+    }
+}
+
+impl fmt::Display for Pitch {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Pitch::Chromatic(p) => write!(f, "{p}"),
+            Pitch::Degree(d) => write!(f, "{d}"),
+            Pitch::Interval(i) => write!(f, "{i}"),
+        }
     }
 }
 

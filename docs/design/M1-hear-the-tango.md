@@ -49,7 +49,7 @@ Two new modules and one new backend. Dependency rules extend the existing table:
 | Module | May import | Must never import |
 |---|---|---|
 | `resolve` | `music`, `control`, `theory`, `pitch`, `time`, `attrs` | `phrase`, `combinators`, `backends::midi` |
-| `analysis` | `resolve`, `pitch`, `time` | `music` directly (takes `&[Event]`), `backends` |
+| `analysis` | `resolve`, `pitch`, `time`, and `music` for `summary` only | `backends`; every other function takes `&[Event]` |
 | `backends::midi` | `resolve`, `attrs`, `backends::hints`, `time` | `combinators`, `theory` |
 | `phrase` | unchanged | unchanged |
 
@@ -201,8 +201,8 @@ The README sketch prints as roughly:
 
 ```
 key(F minor) { time(4/4) { tempo(96) {
-  { G3:e. G3:s G3:e G3:e G3:q G3:q | r:q r:q. | 5:q b5:e 4:e b3:h }
-  { C3:e. C3:s C3:e C3:e C3:q C3:q | r:q r:q. | transpose_diatonic(-1) { 5:q b5:e 4:e b3:h } }
+  { G3:e. G3:s G3:e G3:e G3:q G3:q | r:q r:q. | 5:q b5:e 4:e 3:h }
+  { C3:e. C3:s C3:e C3:e C3:q C3:q | r:q r:q. | transpose_diatonic(-1) { 5:q b5:e 4:e 3:h } }
   ...
 } } }
 ```
