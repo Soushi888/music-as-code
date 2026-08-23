@@ -213,6 +213,14 @@ mod tests {
     }
 
     #[test]
+    fn the_traditional_bass_is_habanera_then_two_quarters() {
+        // The example's bass before slice 7, tree for tree; `habanera().repeat(2)` is a different figure.
+        let old_bass = seq![n(G3, dot(e())), n(G3, s()), n(G3, e()), n(G3, e()), n(G3, q()), n(G3, q())];
+        assert_eq!(habanera().then(straight(2, q())).on(G3), old_bass);
+        assert_ne!(habanera().repeat(2).on(G3), old_bass);
+    }
+
+    #[test]
     fn a_pattern_resolves_and_renders_like_any_music() {
         use crate::backends::midi::{render_midi, MidiOptions};
         use crate::resolve::resolve;
