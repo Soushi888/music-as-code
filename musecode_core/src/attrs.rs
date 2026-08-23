@@ -51,6 +51,9 @@ pub enum Articulation {
     Accent,
     /// Very strongly stressed, like a heavy accent.
     Marcato,
+    /// Struck under the line: audible but deliberately weak, the ghost note of
+    /// a drum or bass figure. Engraved as a parenthesized or cue-sized notehead.
+    Ghost,
     /// Smooth connection to adjacent notes (slur within a phrase).
     Legato,
     /// Tie or slur connecting this note to the next.
@@ -82,6 +85,7 @@ impl fmt::Display for Articulation {
             Articulation::Tenuto => "tenuto",
             Articulation::Accent => "accent",
             Articulation::Marcato => "marcato",
+            Articulation::Ghost => "ghost",
             Articulation::Legato => "legato",
             Articulation::Slur => "slur",
             Articulation::Fermata => "fermata",
