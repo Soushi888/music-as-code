@@ -90,22 +90,41 @@ impl fmt::Display for Stress {
     }
 }
 
-/// A character in an accent string that is not one of `o x X ^`.
+/// Why an accent string does not fit the pattern it was given to.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct BadAccentMark {
-    /// The offending character.
-    pub mark: char,
-    /// Its index in the string.
-    pub at: usize,
+pub enum AccentError {
+    /// A character that is not one of `o x X ^`.
+    BadMark {
+        /// The offending character.
+        mark: char,
+        /// Its index in the string.
+        at: usize,
+    },
+    /// More marks than the pattern has hits. Fewer is fine and cycles, but more
+    /// means the caller is counting a hit that is not there, and silently
+    /// dropping the tail would hide the miscount.
+    TooManyMarks {
+        /// How many marks were given.
+        marks: usize,
+        /// How many hits the pattern has.
+        hits: usize,
+    },
 }
 
-impl fmt::Display for BadAccentMark {
+impl fmt::Display for AccentError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "'{}' at index {} is not an accent mark (o x X ^)", self.mark, self.at)
+        match self {
+            AccentError::BadMark { mark, at } => {
+                write!(f, "'{mark}' at index {at} is not an accent mark (o x X ^)")
+            }
+            AccentError::TooManyMarks { marks, hits } => {
+                write!(f, "{marks} accent marks for {hits} hits")
+            }
+        }
     }
 }
 
-impl std::error::Error for BadAccentMark {}
+impl std::error::Error for AccentError {}
 
 /// One step of a [`Pattern`]: a struck note or a silence, each with a duration.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -175,9 +194,14 @@ impl Pattern {
         self.steps.iter().filter(|s| matches!(s, Step::Hit { .. })).count()
     }
 
-    /// Mark which hits lean, one character per hit from `o x X ^`, cycling when
-    /// the pattern has more hits than marks. Rests are skipped and consume no
-    /// character, so the string reads as the accents alone.
+    /// Mark which hits lean, one character per hit from `o x X ^`. Rests are
+    /// skipped and consume no character, so the string reads as the accents
+    /// alone.
+    ///
+    /// Fewer marks than hits cycles, which is how a one-bar accent figure is
+    /// written once and applied to a repeated pattern. More marks than hits is
+    /// [`AccentError::TooManyMarks`]: the caller is counting a hit that is not
+    /// there, and dropping the tail silently would hide the miscount.
     ///
     /// ```
     /// use musecode_core::prelude::*;
@@ -185,14 +209,18 @@ impl Pattern {
     /// let bass = tresillo().accents("^xX").unwrap();
     /// assert_eq!(bass.accent_grid(), "^xX");
     /// ```
-    pub fn accents(&self, marks: &str) -> Result<Pattern, BadAccentMark> {
+    pub fn accents(&self, marks: &str) -> Result<Pattern, AccentError> {
         let parsed: Vec<Stress> = marks
             .chars()
             .enumerate()
-            .map(|(at, mark)| Stress::from_mark(mark).ok_or(BadAccentMark { mark, at }))
+            .map(|(at, mark)| Stress::from_mark(mark).ok_or(AccentError::BadMark { mark, at }))
             .collect::<Result<_, _>>()?;
         if parsed.is_empty() {
             return Ok(self.clone());
+        }
+        let hits = self.hit_count();
+        if parsed.len() > hits {
+            return Err(AccentError::TooManyMarks { marks: parsed.len(), hits });
         }
         let mut next = parsed.iter().copied().cycle();
         Ok(Pattern {
@@ -407,16 +435,44 @@ mod tests {
         // One mark accents everything; an empty string changes nothing.
         assert_eq!(tresillo().accents("^").unwrap().accent_grid(), "^^^");
         assert_eq!(tresillo().accents("").unwrap(), tresillo());
-        // Marks beyond the hit count are simply unused.
-        assert_eq!(tresillo().accents("^xXo^x").unwrap().accent_grid(), "^xX");
+        // Exactly as many marks as hits is the ordinary case.
+        assert_eq!(tresillo().accents("^xX").unwrap().accent_grid(), "^xX");
+        // A cycling figure over a repeated pattern: two marks, six hits.
+        assert_eq!(tresillo().repeat(2).accents("^x").unwrap().accent_grid(), "^x^x^x");
     }
 
     #[test]
     fn a_bad_mark_is_an_error_naming_the_character() {
-        assert_eq!(tresillo().accents("^.x"), Err(BadAccentMark { mark: '.', at: 1 }));
-        assert_eq!(tresillo().accents("z"), Err(BadAccentMark { mark: 'z', at: 0 }));
+        assert_eq!(tresillo().accents("^.x"), Err(AccentError::BadMark { mark: '.', at: 1 }));
+        assert_eq!(tresillo().accents("z"), Err(AccentError::BadMark { mark: 'z', at: 0 }));
         // The first offender wins, and the pattern is left alone.
         assert!(tresillo().accents("^^!!").is_err());
+    }
+
+    /// More marks than hits is a miscount, not a truncation: the caller is
+    /// accenting a hit that is not there.
+    #[test]
+    fn more_marks_than_hits_is_an_error() {
+        assert_eq!(
+            tresillo().accents("^xXo"),
+            Err(AccentError::TooManyMarks { marks: 4, hits: 3 })
+        );
+        // Rests do not count as hits, so this is four marks for two hits.
+        let p = Pattern::new([Step::hit(q()), Step::Rest(q()), Step::hit(q())]);
+        assert_eq!(p.accents("^x^x"), Err(AccentError::TooManyMarks { marks: 4, hits: 2 }));
+        // A bad mark is reported before the count, since it is the earlier problem.
+        assert!(matches!(tresillo().accents("^x!o"), Err(AccentError::BadMark { .. })));
+        // The empty pattern has no hits, so any mark at all is too many.
+        assert_eq!(
+            Pattern::default().accents("x"),
+            Err(AccentError::TooManyMarks { marks: 1, hits: 0 })
+        );
+        assert_eq!(Pattern::default().accents(""), Ok(Pattern::default()));
+        // And the error reads as a sentence.
+        assert_eq!(
+            tresillo().accents("^xXo").unwrap_err().to_string(),
+            "4 accent marks for 3 hits"
+        );
     }
 
     #[test]

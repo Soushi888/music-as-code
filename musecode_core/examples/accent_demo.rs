@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             Some(mk) => tresillo().accents(mk).unwrap().accent_grid(),
             None => tresillo().accent_grid(),
         });
-        write_midi(&m, &format!("target/accent-{name}.mid"), &MidiOptions::default())?;
+        write_midi(&m, format!("target/accent-{name}.mid"), &MidiOptions::default())?;
     }
     Ok(())
 }

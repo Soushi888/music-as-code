@@ -10,7 +10,7 @@ pub use crate::euclid::{bjorklund, euclid, EuclidError};
 pub use crate::music::{chord, n, r, Music, Note};
 pub use crate::phrase::{Phrase, RenderCache};
 pub use crate::resolve::{resolve, Event, ResolveError, Resolved};
-pub use crate::rhythm::{cinquillo, habanera, straight, tresillo, BadAccentMark, Pattern, Step, Stress};
+pub use crate::rhythm::{cinquillo, habanera, straight, tresillo, AccentError, Pattern, Step, Stress};
 pub use crate::pitch::{
     Accidental, ChromaticPitch, Degree, Interval, IntervalQuality, Letter, Pitch, PitchClass, A3,
     A4, A5, AB4, AS4, B3, B4, B5, BB4, C3, C4, C5, CS4, D3, D4, D5, DB4, DS4, E3, E4, E5, EB4, F3,
