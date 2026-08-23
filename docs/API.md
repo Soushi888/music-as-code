@@ -587,6 +587,21 @@ Rhythm without pitch. A `Pattern` is a list of `Step::Hit(Beats)` / `Step::Rest(
 | `cinquillo()` | e s e s e (half a bar) | five hits over four eighths |
 | `straight(n, dur)` | n equal hits | |
 
+## `euclid`
+
+Euclidean rhythms (Bjorklund's algorithm, Toussaint 2005) as `Pattern`s, plus the grid transforms that make them usable. Re-exported from the prelude.
+
+| Item | Signature | Notes |
+|------|-----------|-------|
+| `bjorklund` | `(hits, steps) -> Result<Vec<bool>, EuclidError>` | starts on a hit; matches Toussaint's published patterns (E(3,8) `x..x..x.`, E(7,12) `x.xx.x.xx.x.`, E(7,16) `x..x.x.x..x.x.x.`) |
+| `euclid` | `(hits, steps, step: Beats) -> Result<Pattern, EuclidError>` | every slot is a hit or rest of length `step` |
+| `EuclidError` | `ZeroSteps`, `TooManyHits { hits, steps }` | `Display` + `Error` |
+| `Pattern::from_grid` | `(&[bool], step) -> Pattern` | |
+| `Pattern::grid` | `(&self) -> String` | `x`/`.` per step, any lengths |
+| `Pattern::rotate` | `(&self, n) -> Pattern` | step `n` becomes the downbeat |
+| `Pattern::complement` | `(&self) -> Pattern` | swap hits and rests |
+| `Pattern::legato` | `(&self) -> Pattern` | each hit absorbs the rests after it; `euclid(3, 8, e()).legato() == tresillo()` |
+
 ## `display`
 
 `impl Display for Music` prints the notation specified in [NOTATION.md](NOTATION.md): `C4:q E4:q G4:h`, `[C4 E4 G4]:h` for a chord, `{ a | b }` for a `Par`, `key(F minor) { ... }` for a `Modify`, `r:q` for a rest, `1:q b3:e` for degrees, `+M3:q` for intervals. Every public type that appears in the notation implements `Display` in its own module (`Letter`, `Accidental`, `PitchClass`, `ChromaticPitch`, `Degree`, `Interval`, `IntervalQuality`, `Pitch`, `Tempo`, `TimeSig`, `Dynamics`, `Mode`, `Key`, `Scale`, `Articulation`, `NoteAttrs`, `Control`), and `time::duration_name(Beats) -> String` names a duration (`q`, `e.`, `h..`, `q3`, else `num/den`).
