@@ -1,3 +1,10 @@
+//! Everything, re-exported flat.
+//!
+//! `use musecode_core::prelude::*;` is the intended import: the layer graph is
+//! how the crate is built, not how it is used, so nothing here is nested behind
+//! a module path. The names are unambiguous across layers by construction, and
+//! anything that would collide is not re-exported.
+
 pub use crate::analysis::{
     interval_histogram, label_triad, pitch_class_set, pitch_range, summary, vertical_slices, PitchClassSet, Triad,
     TriadQuality,

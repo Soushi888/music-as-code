@@ -18,7 +18,7 @@ cargo doc --no-deps  # build rustdoc without serving
 
 ## Architecture
 
-`musecode_core` is a Rust library — the only crate in this workspace. It is a musical DSL built around a small, orthogonal intermediate representation (IR): five core ADT constructors, polymorphic pitch, rational time, and content-addressed fragments. The MIDI backend is the first renderer; the rest of the codebase is the IR, its transformations, the resolver, display and analysis.
+`musecode_core` is a Rust library, the only crate in this workspace. It is a musical DSL built around a small, orthogonal intermediate representation (IR): five core ADT constructors, polymorphic pitch, rational time, and content-addressed fragments. The MIDI backend is the first renderer; the rest of the codebase is the IR, its transformations, the resolver, display and analysis.
 
 ### Seven-layer dependency graph (each layer may only import from layers below it)
 
@@ -56,11 +56,11 @@ pub enum Music {
 
 ### Polymorphic pitch
 
-`Pitch` is an enum of `Chromatic(ChromaticPitch)`, `Degree(Degree)`, and `Interval(Interval)`. `Degree` and `Interval` variants are unresolved until `resolve::resolve` walks the tree with accumulated `Control::Key`/`Control::Scale` context; backends consume `Resolved`, never `Music`. This is what makes `.diatonic_transpose()` and key modulation work without rewriting note values. `invert()` is the only combinator that only operates on `Chromatic` pitches — `Degree`/`Interval` pitches pass through unchanged.
+`Pitch` is an enum of `Chromatic(ChromaticPitch)`, `Degree(Degree)`, and `Interval(Interval)`. `Degree` and `Interval` variants are unresolved until `resolve::resolve` walks the tree with accumulated `Control::Key`/`Control::Scale` context; backends consume `Resolved`, never `Music`. This is what makes `.diatonic_transpose()` and key modulation work without rewriting note values. `invert()` is the only combinator that only operates on `Chromatic` pitches; `Degree`/`Interval` pitches pass through unchanged.
 
 ### Dependency constraints (never violate these)
 
-- `pitch`, `time`, `backends/hints` are leaf modules — they must import nothing internal
+- `pitch`, `time`, `backends/hints` are leaf modules: they must import nothing internal
 - `attrs` must never import `music` or `control` (it exists specifically to break that cycle)
 - `control` must never import `music`
 - `combinators` may import `music` and `control` but not `phrase`
@@ -81,9 +81,10 @@ pub enum Music {
 
 ## Open design questions
 
-Before implementing backends, these IR questions remain unresolved (see README):
+The MIDI backend shipped in M1 without settling these, so they are open questions about the API surface rather than blockers (see README and the issues named):
 
-1. `Modify` with `Vec<Control>` vs single `Control` — saves tree depth vs. canonical form
-2. `Par` alignment semantics for unequal-length children (truncate / loop / pad)
-3. Whether first-class `Score { voices: Map<VoiceId, InstrumentId> }` is needed for engraving
-4. Tie semantics across `Seq` boundaries (flag vs. tree-rewrite pass at render time)
+1. `Modify` with `Vec<Control>` vs a single `Control` (#15): saves tree depth against a loss of canonical form
+2. Whether a first-class `Score { voices: Map<VoiceId, InstrumentId> }` is needed for engraving (#16)
+3. Tie semantics across `Seq` boundaries and into `Par` branches (#17): the stored `tie_to_next` flag against a tree-rewrite pass at render time. `resolve` merges ties within a `Seq` branch today, which is enough for MIDI and may not be enough for engraving.
+
+**Settled in M1:** `Par` alignment (ADR-003). A `Par` lasts as long as its longest child, shorter children are padded with silence, and nothing is truncated or looped. `Music::duration()` implements it. Truncate and loop can arrive later as explicit combinators without touching the constructor.
