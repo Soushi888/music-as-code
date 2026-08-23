@@ -14,3 +14,6 @@ blake3 = "1"
 bincode = "1"
 dashmap = "5"
 serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+proptest = "1"
