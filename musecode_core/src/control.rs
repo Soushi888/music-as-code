@@ -37,7 +37,9 @@ pub enum Control {
     /// and diatonic transpositions within this subtree.
     Key(Key),
     /// Override the scale derived from the active [`Key`], providing explicit
-    /// interval content for degree resolution.
+    /// interval content for degree resolution. Put it *inside* the key: a
+    /// `Control::Key` met below a `Control::Scale` starts a new key and
+    /// discards the override.
     Scale(Scale),
     /// Set the active instrument for this subtree. How this is interpreted
     /// depends on the backend (MIDI program, sample library patch, etc.).

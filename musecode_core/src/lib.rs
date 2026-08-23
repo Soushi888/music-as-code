@@ -14,5 +14,6 @@ pub mod music;
 pub mod phrase;
 pub mod pitch;
 pub mod prelude;
+pub mod resolve;
 pub mod theory;
 pub mod time;

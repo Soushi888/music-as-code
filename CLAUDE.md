@@ -26,6 +26,7 @@ cargo doc --no-deps  # build rustdoc without serving
 | 3 | `music` + `attrs` + `control` | `Music` (5 constructors), `Note`, `NoteAttrs`, `Control` (12 variants), operator overloads |
 | 4 | `theory` | `Key`, `Scale`, `Mode`, `Chord`, `ChordQuality`, `Voicing` |
 | 5 | `combinators` | `transpose`, `augment`, `retrograde`, `invert`, `canon`, `map_notes` |
+| 5 | `resolve` | `resolve()`, `Event`, `Resolved`, `ResolveError` (the one pass that gives `Degree`/`Interval`/`Control` meaning) |
 | 6 | `backends/hints` | `BackendHint`, `LilypondHint`, `MidiHint`, `AudioHint` |
 | 7 | `phrase` | `Phrase` (Arc + Blake3 hash), `RenderCache` |
 
@@ -47,7 +48,7 @@ pub enum Music {
 
 ### Polymorphic pitch
 
-`Pitch` is an enum of `Chromatic(ChromaticPitch)`, `Degree(Degree)`, and `Interval(Interval)`. `Degree` and `Interval` variants are unresolved until a rendering backend walks the tree with accumulated `Control::Key`/`Control::Scale` context. This is what makes `.diatonic_transpose()` and key modulation work without rewriting note values. `invert()` is the only combinator that only operates on `Chromatic` pitches — `Degree`/`Interval` pitches pass through unchanged.
+`Pitch` is an enum of `Chromatic(ChromaticPitch)`, `Degree(Degree)`, and `Interval(Interval)`. `Degree` and `Interval` variants are unresolved until `resolve::resolve` walks the tree with accumulated `Control::Key`/`Control::Scale` context; backends consume `Resolved`, never `Music`. This is what makes `.diatonic_transpose()` and key modulation work without rewriting note values. `invert()` is the only combinator that only operates on `Chromatic` pitches — `Degree`/`Interval` pitches pass through unchanged.
 
 ### Dependency constraints (never violate these)
 
@@ -55,6 +56,7 @@ pub enum Music {
 - `attrs` must never import `music` or `control` (it exists specifically to break that cycle)
 - `control` must never import `music`
 - `combinators` may import `music` and `control` but not `phrase`
+- `resolve` may import `music`, `control`, `theory`, `pitch`, `time`, `attrs`, `backends/hints`; never `phrase`, `combinators`, or a concrete backend
 - `phrase` must never import `combinators` or `theory`
 
 ### Rational time

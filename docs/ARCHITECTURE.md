@@ -14,13 +14,14 @@ graph TD
     time(["time (leaf)"])
     hints(["backends/hints (leaf)"])
 
-    prelude -.->|re-exports| pitch & time & hints & attrs & theory & control & music & combinators & phrase
+    prelude -.->|re-exports| pitch & time & hints & attrs & theory & control & music & combinators & resolve & phrase
 
     attrs --> hints
     theory --> pitch
     control --> pitch & time & attrs & theory & hints
     music --> pitch & time & attrs & control
     combinators --> music & control & time
+    resolve --> music & control & theory & pitch & time & attrs & hints
     phrase --> music & attrs
 ```
 
@@ -36,6 +37,7 @@ graph TD
 | `control` | `pitch`, `time`, `attrs`, `theory`, `backends/hints` |
 | `music` | `pitch`, `time`, `attrs`, `control` |
 | `combinators` | `music`, `control`, `time` |
+| `resolve` | `music`, `control`, `theory`, `pitch`, `time`, `attrs`, `backends/hints` |
 | `phrase` | `music`, `attrs` |
 | `prelude` | everything |
 
@@ -53,7 +55,7 @@ The pitch hierarchy has three tiers:
 2. **`ChromaticPitch`** = `PitchClass` + `octave: i8`. Fully resolved. C4 = MIDI 60.
 3. **`Pitch`** = polymorphic union of `Chromatic(ChromaticPitch)`, `Degree(Degree)`, and `Interval(Interval)`.
 
-`Degree` and `Interval` are unresolved until a `Control::Key` / `Control::Scale` context is present. Backends receive only `ChromaticPitch`; resolution is the backend's first rendering pass.
+`Degree` and `Interval` are unresolved until a `Control::Key` / `Control::Scale` context is present. Backends receive only `ChromaticPitch`; the `resolve` module is the one pass that performs that resolution, and every backend consumes its output.
 
 ### Layer 2: Time (`time`)
 
@@ -84,6 +86,10 @@ graph TD
 `Key`, `Scale`, `Mode`, `Chord`, `ChordQuality`, `Extension`, and `Voicing` live here. These are purely data types with no resolution logic. Resolution (mapping a `Degree` in key F minor to a specific `ChromaticPitch`) belongs in the rendering backend.
 
 `Control` is a 12-variant enum of modifiers that can be wrapped around any `Music` subtree.
+
+### Layer 5: Resolver (`resolve`)
+
+The semantic pass. `resolve(&Music) -> Result<Resolved, ResolveError>` walks the tree with an accumulated context (key, scale override, chromatic and diatonic transposition, dynamics, articulation, voice, instrument, hints) and emits a flat, onset-sorted list of `Event`s with fully resolved `ChromaticPitch`es, velocities and sounding durations, plus a tempo map and time-signature map. Degrees anchor on the tonic in octave 4 and are spelled from the scale step; intervals anchor on the previous note in the same `Seq` branch; ties merge within a branch. Every reachable mistake is a `ResolveError`, never a panic. The rules are listed in the module docs and in `docs/API.md`.
 
 ### Layer 5: Combinators (`combinators`)
 
@@ -151,4 +157,5 @@ To prevent a circular dependency. Both `music` and `control` need `Articulation`
 - `attrs` must never import `music` or `control`
 - `control` must never import `music`
 - `combinators` may import `music` and `control` but not `phrase`
+- `resolve` must never import `phrase`, `combinators`, or a concrete backend
 - `phrase` must never import `combinators` or `theory`

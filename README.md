@@ -135,9 +135,9 @@ fn main() {
     // Shell-voiced comping on beats 2 and 4
     let comp_rest = r(q()) + r(dot(q()));
 
-    // Melody in scale-degree space: descends 5 b5 4 b3
+    // Melody in scale-degree space: descends 5 b5 4 3 (C Cb Bb Ab in F minor)
     let melody = seq![
-        n(d!(5), q()), n(d!(b 5), e()), n(d!(4), e()), n(d!(b 3), h()),
+        n(d!(5), q()), n(d!(b 5), e()), n(d!(4), e()), n(d!(3), h()),
     ];
 
     // Assemble bars: bass | comp | melody
