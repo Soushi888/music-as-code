@@ -577,19 +577,42 @@ assert_eq!(pitches, vec![C4, E4, G4]);
 
 ## `rhythm`
 
-Rhythm without pitch. A `Pattern` is a list of `Step::Hit(Beats)` / `Step::Rest(Beats)`; pitch is applied afterwards, so one rhythm serves any line. Re-exported from the prelude.
+Rhythm without pitch. A `Pattern` is a list of `Step::Hit { dur, stress }` / `Step::Rest(Beats)`; pitch is applied afterwards, so one rhythm serves any line. Re-exported from the prelude.
+
+```rust
+pub enum Step {
+    Hit { dur: Beats, stress: Stress },
+    Rest(Beats),
+}
+
+pub enum Stress { Ghost, Normal, Accent, Marcato }   // Default::default() is Normal
+
+pub enum AccentError {
+    BadMark { mark: char, at: usize },
+    TooManyMarks { marks: usize, hits: usize },
+}
+```
+
+`Stress` maps one to one onto the articulations the resolver gives a velocity offset, so a rhythm's stress and a note's articulation are the same fact written twice. Written form, one character per hit: `o` ghost, `x` normal, `X` accent, `^` marcato. `Normal` writes no articulation at all, so an unaccented pattern produces exactly the notes it produced before stress existed.
 
 | Item | Signature | Notes |
 |------|-----------|-------|
-| `Pattern::new` / `Pattern::hits` | `(impl IntoIterator<Item = Step>)` / `(impl IntoIterator<Item = Beats>)` | `hits` makes every duration a struck note |
+| `Pattern::new` / `Pattern::hits` | `(impl IntoIterator<Item = Step>)` / `(impl IntoIterator<Item = Beats>)` | `hits` makes every duration a struck note at `Stress::Normal` |
 | `steps`, `hit_count`, `duration` | accessors | `duration` sums hits and rests |
 | `then`, `repeat` | `(Pattern) -> Pattern`, `(usize) -> Pattern` | concatenate, loop (`repeat(0)` is empty) |
-| `on` | `(impl Into<Pitch>) -> Music` | every hit gets the pitch; rests stay rests; result is a `Seq` |
+| `Step::hit` / `Step::duration` / `Step::stress` | `(Beats) -> Step` / `(self) -> Beats` / `(self) -> Option<Stress>` | `hit` is a hit at `Stress::Normal`; `stress` is `None` for a rest |
+| `Stress::articulation` | `(self) -> Option<Articulation>` | `Normal` gives `None`; the other three give `Ghost`, `Accent`, `Marcato` |
+| `Stress::mark` / `Stress::from_mark` | `(self) -> char` / `(char) -> Option<Stress>` | the `o x X ^` alphabet, both directions |
+| `accents` | `(&self, &str) -> Result<Pattern, AccentError>` | one mark per hit, rests skipped; fewer marks cycle, more is `TooManyMarks`; a character outside `o x X ^` is `BadMark { mark, at }` |
+| `accent_grid` | `(&self) -> String` | one character per step: the stress mark for a hit, `.` for a rest |
+| `on` | `(impl Into<Pitch>) -> Music` | every hit gets the pitch; rests stay rests; result is a `Seq`. Writes the stress as `attrs.articulation` and never writes `attrs.velocity`, so the dynamics in scope still decide how loud an accent is |
 | `with` | `(impl IntoIterator<Item = impl Into<Pitch>>) -> Music` | pitches cycle over the hits; no pitches = silence of the same length |
 | `tresillo()` | q. q. q (one bar of 4/4) | nuevo tango bass, 3+3+2 |
 | `habanera()` | e. s e e (half a bar) | traditional tango / milonga bass |
 | `cinquillo()` | e s e s e (half a bar) | five hits over four eighths |
 | `straight(n, dur)` | n equal hits | |
+
+Every shipped figure is unaccented, which is what keeps `euclid(3, 8, e()).legato() == tresillo()` true. Accent at the call site: `tresillo().accents("^xX")?`.
 
 ## `euclid`
 
@@ -601,7 +624,7 @@ Euclidean rhythms (Bjorklund's algorithm, Toussaint 2005) as `Pattern`s, plus th
 | `euclid` | `(hits, steps, step: Beats) -> Result<Pattern, EuclidError>` | every slot is a hit or rest of length `step` |
 | `EuclidError` | `ZeroSteps`, `TooManyHits { hits, steps }` | `Display` + `Error` |
 | `Pattern::from_grid` | `(&[bool], step) -> Pattern` | |
-| `Pattern::grid` | `(&self) -> String` | `x`/`.` per step, any lengths |
+| `Pattern::grid` | `(&self) -> String` | `x`/`.` per step, any lengths; hit against rest only, see `accent_grid` for the stresses |
 | `Pattern::rotate` | `(&self, n) -> Pattern` | step `n` becomes the downbeat |
 | `Pattern::complement` | `(&self) -> Pattern` | swap hits and rests |
 | `Pattern::legato` | `(&self) -> Pattern` | each hit absorbs the rests after it; `euclid(3, 8, e()).legato() == tresillo()` |

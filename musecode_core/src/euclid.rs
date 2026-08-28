@@ -102,14 +102,14 @@ pub fn euclid(hits: usize, steps: usize, step: Beats) -> Result<Pattern, EuclidE
 impl Pattern {
     /// A pattern from a grid of booleans, `true` for a hit, every slot `step` long.
     pub fn from_grid(grid: &[bool], step: Beats) -> Pattern {
-        Pattern::new(grid.iter().map(|&hit| if hit { Step::Hit(step) } else { Step::Rest(step) }))
+        Pattern::new(grid.iter().map(|&hit| if hit { Step::hit(step) } else { Step::Rest(step) }))
     }
 
     /// The pattern as a grid string, `x` for a hit and `.` for a rest, one
     /// character per step regardless of length: `tresillo().grid()` is `xxx`,
     /// `euclid(3, 8, e())` is `x..x..x.`.
     pub fn grid(&self) -> String {
-        self.steps().iter().map(|s| if matches!(s, Step::Hit(_)) { 'x' } else { '.' }).collect()
+        self.steps().iter().map(|s| if matches!(s, Step::Hit { .. }) { 'x' } else { '.' }).collect()
     }
 
     /// Rotate the pattern left by `n` steps, so the step at index `n` becomes
@@ -126,8 +126,8 @@ impl Pattern {
     /// Swap hits and rests, keeping every duration: the complementary rhythm.
     pub fn complement(&self) -> Pattern {
         Pattern::new(self.steps().iter().map(|s| match *s {
-            Step::Hit(d) => Step::Rest(d),
-            Step::Rest(d) => Step::Hit(d),
+            Step::Hit { dur, .. } => Step::Rest(dur),
+            Step::Rest(dur) => Step::hit(dur),
         }))
     }
 
@@ -139,7 +139,7 @@ impl Pattern {
         let mut out: Vec<Step> = Vec::new();
         for &step in self.steps() {
             match (step, out.last_mut()) {
-                (Step::Rest(d), Some(Step::Hit(held))) => *held += d,
+                (Step::Rest(d), Some(Step::Hit { dur, .. })) => *dur += d,
                 (s, _) => out.push(s),
             }
         }
@@ -189,7 +189,7 @@ mod tests {
                 assert_eq!(p.steps().len(), steps);
                 assert_eq!(p.duration(), s() * steps as i32);
                 if hits > 0 {
-                    assert!(matches!(p.steps()[0], Step::Hit(_)), "E({hits},{steps}) starts on a hit");
+                    assert!(matches!(p.steps()[0], Step::Hit { .. }), "E({hits},{steps}) starts on a hit");
                 }
             }
         }
@@ -219,7 +219,7 @@ mod tests {
         assert_eq!(euclid(3, 8, e()).unwrap().legato().on(G3), tresillo().on(G3));
         let shifted = euclid(3, 8, e()).unwrap().rotate(7); // ".x..x..x"
         assert_eq!(shifted.grid(), ".x..x..x");
-        assert_eq!(shifted.legato(), Pattern::new([Step::Rest(e()), Step::Hit(dot(q())), Step::Hit(dot(q())), Step::Hit(e())]));
+        assert_eq!(shifted.legato(), Pattern::new([Step::Rest(e()), Step::hit(dot(q())), Step::hit(dot(q())), Step::hit(e())]));
         assert_eq!(shifted.legato().duration(), w());
     }
 
