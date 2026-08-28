@@ -34,9 +34,10 @@
 //! - **`Control::DiatonicTranspose(n)`** moves `Degree` pitches by `n` scale
 //!   steps, borrowing octaves so that degree 1 down one step is degree 7 an
 //!   octave lower. Chromatic and interval pitches pass through unchanged.
-//! - **Velocity** is the note's own `velocity` if set, else the dynamics level
-//!   in scope through a fixed table (mf = 80). `Crescendo` and `Decrescendo`
-//!   leave the level unchanged.
+//! - **Velocity** is the note's own `velocity` if set. Otherwise it is the
+//!   dynamics level in scope through a fixed table (mf = 80), shifted by the
+//!   articulation in scope (accent +15, marcato +30, ghost -25) and clamped to
+//!   `1..=127`. `Crescendo` and `Decrescendo` leave the level unchanged.
 //! - **Sounding duration** is the written duration scaled by the effective
 //!   articulation: staccato 1/2, staccatissimo 1/4, everything else 1.
 //! - **Ties.** `tie_to_next` merges a note with the next note in the same
@@ -337,7 +338,12 @@ fn emit(
         return Ok((base, idx));
     }
 
-    let velocity = note.attrs.velocity.unwrap_or_else(|| velocity_for(ctx.dynamics)).clamp(1, 127);
+    let velocity = match note.attrs.velocity {
+        // An explicit velocity is the caller saying exactly what they mean; the
+        // stress articulations do not second-guess it.
+        Some(v) => v.clamp(1, 127),
+        None => (i16::from(velocity_for(ctx.dynamics)) + velocity_offset(articulation)).clamp(1, 127) as u8,
+    };
     let mut hints = note.attrs.hints.clone();
     hints.extend(ctx.hints.iter().cloned());
     out.events.push(Event {
@@ -498,6 +504,23 @@ fn transposed(p: ChromaticPitch, semitones: i32) -> Result<ChromaticPitch, Resol
         Ok(ChromaticPitch { class: p.class, octave })
     } else {
         from_midi_checked(midi)
+    }
+}
+
+/// Velocity offset for the three stress articulations, applied on top of the
+/// dynamics-derived velocity. Accent and marcato lean into the note, ghost puts
+/// it under the line; every other articulation leaves velocity alone.
+///
+/// The result is clamped to `1..=127` at the call site, and the quiet end is
+/// the one that matters: a velocity-0 note-on is a note-off on most
+/// synthesizers, so an unclamped ghost under `ppp` would delete the note
+/// instead of softening it.
+fn velocity_offset(a: Option<Articulation>) -> i16 {
+    match a {
+        Some(Articulation::Accent) => 15,
+        Some(Articulation::Marcato) => 30,
+        Some(Articulation::Ghost) => -25,
+        _ => 0,
     }
 }
 
@@ -954,4 +977,111 @@ mod tests {
         let text = ResolveError::TieMismatch { at: b(3, 2) }.to_string();
         assert!(text.contains("3/2"), "{text}");
     }
+    /// One case per dynamics level: an accent adds 15 on top of whatever the
+    /// dynamics say, and the articulation survives into the event for the
+    /// notation backends.
+    #[test]
+    fn accent_shifts_the_dynamics_derived_velocity() {
+        let table = [
+            (Dynamics::Ppp, 16),
+            (Dynamics::Pp, 33),
+            (Dynamics::P, 49),
+            (Dynamics::Mp, 64),
+            (Dynamics::Mf, 80),
+            (Dynamics::F, 96),
+            (Dynamics::Ff, 112),
+            (Dynamics::Sfz, 120),
+        ];
+        for (level, plain) in table {
+            let bare = n(C4, q()).modify(Control::Dynamics(level));
+            assert_eq!(resolve(&bare).unwrap().events[0].velocity, plain, "{level:?} plain");
+            for (art, offset) in [
+                (Articulation::Accent, 15i16),
+                (Articulation::Marcato, 30),
+                (Articulation::Ghost, -25),
+            ] {
+                let m = n(C4, q())
+                    .modify(Control::Articulation(art))
+                    .modify(Control::Dynamics(level));
+                let ev = &resolve(&m).unwrap().events[0];
+                let want = (i16::from(plain) + offset).clamp(1, 127) as u8;
+                assert_eq!(ev.velocity, want, "{level:?} with {art:?}");
+                assert_eq!(ev.articulation, Some(art), "articulation must survive to the event");
+            }
+        }
+    }
+
+    /// The two ends. Loud clamps at 127 rather than wrapping; quiet clamps at 1
+    /// rather than reaching 0, because a velocity-0 note-on is a note-off on
+    /// most synthesizers and would delete the note instead of softening it.
+    #[test]
+    fn the_offsets_clamp_at_both_ends() {
+        let loud = n(C4, q())
+            .modify(Control::Articulation(Articulation::Marcato))
+            .modify(Control::Dynamics(Dynamics::Fff));
+        assert_eq!(resolve(&loud).unwrap().events[0].velocity, 127, "fff + marcato saturates");
+
+        let quiet = n(C4, q())
+            .modify(Control::Articulation(Articulation::Ghost))
+            .modify(Control::Dynamics(Dynamics::Ppp));
+        let v = resolve(&quiet).unwrap().events[0].velocity;
+        assert_eq!(v, 1, "ppp + ghost floors at 1");
+        assert_ne!(v, 0, "velocity 0 is a note-off, never a soft note");
+    }
+
+    /// Everything that is not a stress articulation leaves velocity alone,
+    /// including tenuto, which emphasises length rather than attack.
+    #[test]
+    fn only_the_stress_articulations_move_velocity() {
+        let plain = resolve(&n(C4, q())).unwrap().events[0].velocity;
+        for art in [
+            Articulation::Tenuto,
+            Articulation::Staccato,
+            Articulation::Legato,
+            Articulation::Fermata,
+            Articulation::Pizzicato,
+        ] {
+            let m = n(C4, q()).modify(Control::Articulation(art));
+            assert_eq!(resolve(&m).unwrap().events[0].velocity, plain, "{art:?}");
+        }
+    }
+
+    /// An explicit velocity is the caller being exact, so the offsets stay out
+    /// of it; and the note's own articulation still shadows the one in scope.
+    #[test]
+    fn an_explicit_velocity_wins_over_the_offset() {
+        let note = Music::Note(Note {
+            pitch: C4.into(),
+            dur: q(),
+            attrs: NoteAttrs {
+                velocity: Some(40),
+                articulation: Some(Articulation::Marcato),
+                ..Default::default()
+            },
+        });
+        let m = note.modify(Control::Dynamics(Dynamics::Fff));
+        assert_eq!(resolve(&m).unwrap().events[0].velocity, 40);
+
+        // The note's own articulation shadows the enclosing one, velocity included.
+        let shadowed = Music::Note(Note {
+            pitch: C4.into(),
+            dur: q(),
+            attrs: NoteAttrs { articulation: Some(Articulation::Ghost), ..Default::default() },
+        })
+        .modify(Control::Articulation(Articulation::Marcato));
+        assert_eq!(resolve(&shadowed).unwrap().events[0].velocity, 80 - 25);
+    }
+
+    /// Ghost prints by name, since it has no shorthand.
+    #[test]
+    fn ghost_prints_as_a_named_articulation() {
+        assert_eq!(Articulation::Ghost.to_string(), "ghost");
+        let note = Music::Note(Note {
+            pitch: C4.into(),
+            dur: q(),
+            attrs: NoteAttrs { articulation: Some(Articulation::Ghost), ..Default::default() },
+        });
+        assert_eq!(format!("{note}"), "C4:q-ghost");
+    }
+
 }

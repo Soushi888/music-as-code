@@ -34,7 +34,7 @@ dur       := ('w'|'h'|'q'|'e'|'s'|'t') ('.' | '..' | '3')?   q  e.  h..  q3
 attrs     := artic? tie? velocity? voice? hint*
 artic     := '-.' | '-!' | '--' | '->' | '-^' | '-' name
              staccato staccatissimo tenuto accent marcato; every other articulation by name:
-             -legato -slur -fermata -pizzicato -arco -trill -mordent -turn
+             -ghost -legato -slur -fermata -pizzicato -arco -trill -mordent -turn
              -harmonic_natural -harmonic_artificial
 tie       := '~'                                       tied to the next note of the same pitch
 velocity  := '@v' number                               1..=127
