@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: check and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --all-targets
+      - run: cargo test
+      - run: cargo clippy --all-targets -- -D warnings
+        continue-on-error: true
+      - run: cargo doc --no-deps
+
+  docs-surface:
+    name: docs surface (warning only)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    # Never blocks. It reports public surface that no document mentions, so a
+    # documentation round later has a list to work from. Run the same script by
+    # hand during that round: .github/scripts/docs-surface.sh origin/master
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compare this change against the base
+        run: |
+          git fetch -q origin "${{ github.base_ref }}"
+          .github/scripts/docs-surface.sh "origin/${{ github.base_ref }}" HEAD
