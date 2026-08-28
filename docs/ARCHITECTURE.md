@@ -125,7 +125,15 @@ Methods implemented on `Music` directly:
 - `map_notes`, `map_rests`: structural recursion primitives
 - `pipe`: apply any `FnOnce(Music) -> Music` inline
 
-Free functions (stubs pending implementation): `swing`, `humanize`, `canon`.
+Free functions: `canon` (implemented), `swing` and `humanize` (declared, panic with `todo!()`, scheduled for M3).
+
+### Layer 5: Rhythm (`rhythm`)
+
+Rhythm as a value with no pitch. A `Pattern` is a list of `Step`s, each a hit or a rest with a rational duration. `then` concatenates, `repeat` loops, and pitch is applied last: `on(pitch)` strikes every hit on one pitch, `with(pitches)` cycles pitches over the hits. Both return a plain `Seq`, so nothing is added to the IR. The module ships the figures the tango repertoire is built on: `tresillo` (q. q. q, the nuevo-tango bass), `habanera` (e. s e e), `cinquillo` (e s e s e) and `straight(n, dur)`. It imports `music`, `pitch` and `time` only: no `control`, no `theory`, no backend, so a rhythm can never depend on a key or a renderer.
+
+### Layer 5: Euclidean Rhythms (`euclid`)
+
+Bjorklund's algorithm (Toussaint 2005): `bjorklund(hits, steps)` spreads `hits` as evenly as possible over `steps` and returns a boolean grid, `euclid(hits, steps, step)` turns that grid into a `Pattern` whose slots all last `step`. The grid transforms live here because they are what one does with a grid: `from_grid`, `grid` (the `x..x..x.` picture), `rotate` (move the downbeat), `complement` (swap hits and rests) and `legato` (each hit absorbs the rests after it, which is how a grid becomes a bass line). `euclid(3, 8, e()).legato() == tresillo()` is a test, not a coincidence. Imports `rhythm` and `time` only.
 
 ### Layer 6: Backend Hints (`backends/hints`)
 
@@ -136,6 +144,10 @@ Free functions (stubs pending implementation): `swing`, `humanize`, `canon`.
 - `AudioHint`: keyswitch note, articulation name, mic position, round-robin index
 
 A backend that doesn't understand a hint ignores it. The IR itself (`Music`) carries no backend-specific state.
+
+### Layer 6: MIDI Export (`backends/midi`)
+
+The first renderer. `render_midi(&Music, &MidiOptions)` resolves the tree and hands the `Resolved` events to `render_resolved`, which writes a format 1 Standard MIDI File through the `midly` crate: track 0 is the conductor track (tempo and time-signature meta events, `120 bpm` and `4/4` supplied when the piece states neither), then one track per voice in order of first appearance, each on the next free channel with channel 9 (GM percussion) skipped. Programs come from a `MidiHint::ProgramChange` on the note, else the note's `InstrumentId` through the GM table in `program_for`, else `MidiOptions::default_program`; a program change is written whenever that differs from what the channel last received. Ticks are `beats * ppq`, exact for every duration helper at the default 480 PPQ. `write_midi` puts the bytes on disk. Every failure is a `MidiError` (`Resolve`, `Io`, `InvalidPpq`, `ZeroTempo`, `BadTimeSignature`, `PitchOutOfMidiRange`, `TickOverflow`), never a panic. The backend consumes `Resolved` and never reads `Music` for meaning: it may import `resolve`, `music`, `attrs`, `backends/hints` and `time`, never `combinators`, `theory`, `analysis` or `display`.
 
 ### Layer 7: Phrases (`phrase`)
 
@@ -172,5 +184,8 @@ To prevent a circular dependency. Both `music` and `control` need `Articulation`
 - `control` must never import `music`
 - `combinators` may import `music` and `control` but not `phrase`
 - `resolve` must never import `phrase`, `combinators`, or a concrete backend
-- `analysis` works on `&[Event]` and must never import a backend
+- `rhythm` may import `music`, `pitch`, `time` only; never `control`, `theory`, `resolve`, or a backend
+- `euclid` may import `rhythm` and `time` only
+- `analysis` works on `&[Event]` and must never import a backend (`summary(&Music)` is the one convenience that resolves a tree itself)
+- `backends/midi` consumes `Resolved`; it must never import `combinators`, `theory`, `analysis`, or `display`
 - `phrase` must never import `combinators` or `theory`
